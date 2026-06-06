@@ -919,20 +919,49 @@ export default function App() {
               </>
             )}
 
-            {/* 2. REGISTRY SCREEN */}
             {currentTab === 'registry' && (
               <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <div className="panel-header">
+                <div className="panel-header" style={{ marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
                   <h3>Checked-in Guests Database Registry</h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 10px' }}>
-                    <Search size={12} color="var(--text-muted)" />
-                    <input 
-                      type="text" 
-                      placeholder="Search any keyword..." 
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '12px', outline: 'none', width: '200px' }}
-                    />
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    
+                    {/* Keyword search input */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '6px 12px' }}>
+                      <Search size={12} color="var(--text-muted)" />
+                      <input 
+                        type="text" 
+                        placeholder="Search keyword..." 
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '12.5px', outline: 'none', width: '150px' }}
+                      />
+                    </div>
+
+                    {/* Threat Status select */}
+                    <select 
+                      className="filter-select" 
+                      value={filterStatus} 
+                      onChange={e => setFilterStatus(e.target.value)}
+                      style={{ width: '140px', padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <option value="All">All Statuses</option>
+                      <option value="Cleared">Cleared Only</option>
+                      <option value="Watchlist Match">Watchlist Matches</option>
+                      <option value="Escalated">Escalated</option>
+                      <option value="Flagged">Flagged</option>
+                    </select>
+
+                    {/* Origin Nationality select */}
+                    <select 
+                      className="filter-select" 
+                      value={filterNationality} 
+                      onChange={e => setFilterNationality(e.target.value)}
+                      style={{ width: '150px', padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <option value="All">All Nationalities</option>
+                      <option value="Indian">Indian Citizens</option>
+                      <option value="Foreigner">Foreign Nationals</option>
+                    </select>
                   </div>
                 </div>
 
@@ -949,25 +978,34 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.liveCheckins.filter(searchFilter).filter(c => filterBySelectedDistrict(c.propertyName)).map(c => (
-                        <tr key={c.id} onClick={() => setSelectedItem({ type: 'guest', item: c })} style={{ cursor: 'pointer' }}>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <img src={c.photo} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                              <strong>{c.guestName}</strong>
-                            </div>
-                          </td>
-                          <td className="mono-id">{c.idType}: {c.idNumber}</td>
-                          <td>{c.nationality}</td>
-                          <td>{c.propertyName}</td>
-                          <td>{c.roomNumber}</td>
-                          <td>
-                            <span className={`status-indicator ${c.status}`}>
-                              {c.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {data.liveCheckins
+                        .filter(searchFilter)
+                        .filter(c => filterStatus === 'All' ? true : c.status === filterStatus)
+                        .filter(c => {
+                          if (filterNationality === 'All') return true;
+                          if (filterNationality === 'Indian') return c.nationality === 'Indian';
+                          return c.nationality !== 'Indian';
+                        })
+                        .filter(c => filterBySelectedDistrict(c.propertyName))
+                        .map(c => (
+                          <tr key={c.id} onClick={() => setSelectedItem({ type: 'guest', item: c })} style={{ cursor: 'pointer' }}>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <img src={c.photo} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                <strong>{c.guestName}</strong>
+                              </div>
+                            </td>
+                            <td className="mono-id">{c.idType}: {c.idNumber}</td>
+                            <td>{c.nationality}</td>
+                            <td>{c.propertyName}</td>
+                            <td>{c.roomNumber}</td>
+                            <td>
+                              <span className={`status-indicator ${c.status}`}>
+                                {c.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
