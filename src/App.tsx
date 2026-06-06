@@ -49,6 +49,39 @@ export default function App() {
   const [filterNationality, setFilterNationality] = useState<string>('All');
   const [filterAge, setFilterAge] = useState<number>(65);
 
+  // PG Applications filters
+  const [pgAppDistrictFilter, setPgAppDistrictFilter] = useState('All');
+
+  // Bookings filters
+  const [bookingsDistrictFilter, setBookingsDistrictFilter] = useState('All');
+  const [bookingsSearchQuery, setBookingsSearchQuery] = useState('');
+
+  // Occupancy filters
+  const [occupancyDistrictFilter, setOccupancyDistrictFilter] = useState('All');
+  const [occupancyTypeFilter, setOccupancyTypeFilter] = useState('All');
+  const [occupancySearchQuery, setOccupancySearchQuery] = useState('');
+
+  // Verifications filters
+  const [verificationsStatusFilter, setVerificationsStatusFilter] = useState('All');
+  const [verificationsDocTypeFilter, setVerificationsDocTypeFilter] = useState('All');
+  const [verificationsSearchQuery, setVerificationsSearchQuery] = useState('');
+
+  // Audits filters
+  const [auditsCctvFilter, setAuditsCctvFilter] = useState('All');
+  const [auditsFireFilter, setAuditsFireFilter] = useState('All');
+  const [auditsSearchQuery, setAuditsSearchQuery] = useState('');
+
+  // Compliance filters
+  const [complianceScoreFilter, setComplianceScoreFilter] = useState('All');
+  const [complianceStatusFilter, setComplianceStatusFilter] = useState('All');
+  const [complianceSearchQuery, setComplianceSearchQuery] = useState('');
+
+  // Users page filters
+  const [usersDistrictFilter, setUsersDistrictFilter] = useState('All');
+  const [usersStatusFilter, setUsersStatusFilter] = useState('All');
+  const [usersNationalityFilter, setUsersNationalityFilter] = useState('All');
+  const [usersSearchQuery, setUsersSearchQuery] = useState('');
+
   // PG Verification Sub-Tabs
   const [verificationSubTab, setVerificationSubTab] = useState<'pending' | 'verified' | 'approved' | 'declined'>('pending');
 
@@ -1016,12 +1049,27 @@ export default function App() {
             {currentTab === 'pg-applications' && (
               <motion.div className="glass-card" style={{ overflow: 'visible' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 
-                <div className="panel-header" style={{ marginBottom: '14px' }}>
+                <div className="panel-header" style={{ marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
                     <h3>PG Applications Physical Verification Registry</h3>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
                       Command workflow system for ground patrol assignment, document requests, and operating approvals.
                     </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold' }}>FILTER DISTRICT:</label>
+                    <select 
+                      className="filter-select" 
+                      value={pgAppDistrictFilter} 
+                      onChange={e => setPgAppDistrictFilter(e.target.value)}
+                      style={{ width: '170px', padding: '5px 10px', fontSize: '11.5px' }}
+                    >
+                      <option value="All">All Districts</option>
+                      <option value="NTR Vijayawada">NTR Vijayawada</option>
+                      <option value="Visakhapatnam">Visakhapatnam</option>
+                      <option value="Guntur City">Guntur City</option>
+                      <option value="Tirupati Urban">Tirupati Urban</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1032,28 +1080,28 @@ export default function App() {
                     onClick={() => setVerificationSubTab('pending')}
                     style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '11.5px', cursor: 'pointer', border: '1px solid var(--border-color)', background: verificationSubTab === 'pending' ? 'var(--primary)' : 'none', color: verificationSubTab === 'pending' ? '#000' : 'inherit', fontWeight: 'bold' }}
                   >
-                    Verification Pending ({data.properties.filter(p => p.verificationStatus === 'submitted_physical' || p.verificationStatus === 'docs_required').length})
+                    Verification Pending ({data.properties.filter(p => (p.verificationStatus === 'submitted_physical' || p.verificationStatus === 'docs_required') && (pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)).length})
                   </button>
                   <button 
                     className={`filter-chip ${verificationSubTab === 'verified' ? 'active' : ''}`} 
                     onClick={() => setVerificationSubTab('verified')}
                     style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '11.5px', cursor: 'pointer', border: '1px solid var(--border-color)', background: verificationSubTab === 'verified' ? 'var(--primary)' : 'none', color: verificationSubTab === 'verified' ? '#000' : 'inherit', fontWeight: 'bold' }}
                   >
-                    Police Verified / Reports Uploaded ({data.properties.filter(p => p.verificationStatus === 'police_verified').length})
+                    Police Verified / Reports ({data.properties.filter(p => p.verificationStatus === 'police_verified' && (pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)).length})
                   </button>
                   <button 
                     className={`filter-chip ${verificationSubTab === 'approved' ? 'active' : ''}`} 
                     onClick={() => setVerificationSubTab('approved')}
                     style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '11.5px', cursor: 'pointer', border: '1px solid var(--border-color)', background: verificationSubTab === 'approved' ? 'var(--primary)' : 'none', color: verificationSubTab === 'approved' ? '#000' : 'inherit', fontWeight: 'bold' }}
                   >
-                    Approved PGs ({data.properties.filter(p => p.verificationStatus === 'approved').length})
+                    Approved PGs ({data.properties.filter(p => p.verificationStatus === 'approved' && (pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)).length})
                   </button>
                   <button 
                     className={`filter-chip ${verificationSubTab === 'declined' ? 'active' : ''}`} 
                     onClick={() => setVerificationSubTab('declined')}
                     style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '11.5px', cursor: 'pointer', border: '1px solid var(--border-color)', background: verificationSubTab === 'declined' ? 'var(--primary)' : 'none', color: verificationSubTab === 'declined' ? '#000' : 'inherit', fontWeight: 'bold' }}
                   >
-                    Declined PGs ({data.properties.filter(p => p.verificationStatus === 'declined').length})
+                    Declined PGs ({data.properties.filter(p => p.verificationStatus === 'declined' && (pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)).length})
                   </button>
                 </div>
 
@@ -1063,48 +1111,51 @@ export default function App() {
                   {/* PENDING SUBMISSION TAB */}
                   {verificationSubTab === 'pending' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {data.properties.filter(p => p.verificationStatus === 'submitted_physical' || p.verificationStatus === 'docs_required').map(p => (
-                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                          <div>
-                            <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
-                            <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{p.address} • {p.district}</p>
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '10px', color: 'var(--text-secondary)' }}>
-                              <span>Owner: {p.ownerName} ({p.ownerPhone})</span>
-                              <span>Submitted: {p.submittedDate}</span>
-                            </div>
-                            {p.verificationStatus === 'docs_required' && (
-                              <div style={{ marginTop: '8px', padding: '6px 10px', backgroundColor: 'var(--warning-subtle)', border: '1px solid var(--warning)', borderRadius: '6px', fontSize: '11px', color: 'var(--warning)', fontWeight: 'bold' }}>
-                                paused: {p.policeReportComments}
+                      {data.properties
+                        .filter(p => p.verificationStatus === 'submitted_physical' || p.verificationStatus === 'docs_required')
+                        .filter(p => pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)
+                        .map(p => (
+                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                            <div>
+                              <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
+                              <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{p.address} • {p.district}</p>
+                              <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                                <span>Owner: {p.ownerName} ({p.ownerPhone})</span>
+                                <span>Submitted: {p.submittedDate}</span>
                               </div>
-                            )}
-                          </div>
+                              {p.verificationStatus === 'docs_required' && (
+                                <div style={{ marginTop: '8px', padding: '6px 10px', backgroundColor: 'var(--warning-subtle)', border: '1px solid var(--warning)', borderRadius: '6px', fontSize: '11px', color: 'var(--warning)', fontWeight: 'bold' }}>
+                                  paused: {p.policeReportComments}
+                                </div>
+                              )}
+                            </div>
 
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button 
-                              className="btn-action-large success" 
-                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
-                              onClick={() => handleSendPatrolVerification(p.id)}
-                            >
-                              <Send size={11} /> Send Police Patrol
-                            </button>
-                            <button 
-                              className="btn-action-large warning" 
-                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
-                              onClick={() => handleRequestMoreDocs(p.id)}
-                            >
-                              <HelpCircle size={11} /> Request Documents
-                            </button>
-                            <button 
-                              className="btn-action-large" 
-                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px', border: '1px solid var(--border-color)' }}
-                              onClick={() => handleReuploadRequiredDocs(p.id)}
-                            >
-                              <RefreshCw size={11} /> Re-upload docs
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button 
+                                className="btn-action-large success" 
+                                style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
+                                onClick={() => handleSendPatrolVerification(p.id)}
+                              >
+                                <Send size={11} /> Send Police Patrol
+                              </button>
+                              <button 
+                                className="btn-action-large warning" 
+                                style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
+                                onClick={() => handleRequestMoreDocs(p.id)}
+                              >
+                                <HelpCircle size={11} /> Request Documents
+                              </button>
+                              <button 
+                                className="btn-action-large" 
+                                style={{ width: 'auto', padding: '6px 12px', fontSize: '11px', border: '1px solid var(--border-color)' }}
+                                onClick={() => handleReuploadRequiredDocs(p.id)}
+                              >
+                                <RefreshCw size={11} /> Re-upload docs
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                      {data.properties.filter(p => p.verificationStatus === 'submitted_physical' || p.verificationStatus === 'docs_required').length === 0 && (
+                        ))}
+                      {data.properties.filter(p => (p.verificationStatus === 'submitted_physical' || p.verificationStatus === 'docs_required') && (pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)).length === 0 && (
                         <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '12px' }}>No properties in this verification queue.</div>
                       )}
                     </div>
@@ -1113,46 +1164,49 @@ export default function App() {
                   {/* POLICE VERIFIED TAB */}
                   {verificationSubTab === 'verified' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {data.properties.filter(p => p.verificationStatus === 'police_verified').map(p => (
-                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                          <div style={{ flex: 1 }}>
-                            <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
-                            <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{p.address} • {p.district}</p>
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '10.5px', color: 'var(--text-secondary)' }}>
-                              <span>Verification Officer: <strong>{p.verificationOfficer}</strong></span>
-                              <span>Submitted: {p.submittedDate}</span>
+                      {data.properties
+                        .filter(p => p.verificationStatus === 'police_verified')
+                        .filter(p => pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)
+                        .map(p => (
+                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                            <div style={{ flex: 1 }}>
+                              <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
+                              <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{p.address} • {p.district}</p>
+                              <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '10.5px', color: 'var(--text-secondary)' }}>
+                                <span>Verification Officer: <strong>{p.verificationOfficer}</strong></span>
+                                <span>Submitted: {p.submittedDate}</span>
+                              </div>
+                              <div style={{ marginTop: '8px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '6px', fontSize: '11px', border: '1px solid var(--border-color)' }}>
+                                <strong>Patrol Report Comment:</strong> {p.policeReportComments}
+                              </div>
                             </div>
-                            <div style={{ marginTop: '8px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '6px', fontSize: '11px', border: '1px solid var(--border-color)' }}>
-                              <strong>Patrol Report Comment:</strong> {p.policeReportComments}
-                            </div>
-                          </div>
 
-                          <div style={{ display: 'flex', gap: '8px', marginLeft: '14px' }}>
-                            <button 
-                              className="btn-action-large success" 
-                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
-                              onClick={() => handleVerifyProperty(p.id)}
-                            >
-                              <Check size={11} /> Approve PG
-                            </button>
-                            <button 
-                              className="btn-action-large danger" 
-                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
-                              onClick={() => handleSuspendProperty(p.id)}
-                            >
-                              <XCircle size={11} /> Decline PG
-                            </button>
-                            <button 
-                              className="btn-action-large warning" 
-                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
-                              onClick={() => handleRequestMoreDocs(p.id)}
-                            >
-                              Need Documents
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px', marginLeft: '14px' }}>
+                              <button 
+                                className="btn-action-large success" 
+                                style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
+                                onClick={() => handleVerifyProperty(p.id)}
+                              >
+                                <Check size={11} /> Approve PG
+                              </button>
+                              <button 
+                                className="btn-action-large danger" 
+                                style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
+                                onClick={() => handleSuspendProperty(p.id)}
+                              >
+                                <XCircle size={11} /> Decline PG
+                              </button>
+                              <button 
+                                className="btn-action-large warning" 
+                                style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
+                                onClick={() => handleRequestMoreDocs(p.id)}
+                              >
+                                Need Documents
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                      {data.properties.filter(p => p.verificationStatus === 'police_verified').length === 0 && (
+                        ))}
+                      {data.properties.filter(p => p.verificationStatus === 'police_verified' && (pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)).length === 0 && (
                         <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '12px' }}>No reports submitted for review.</div>
                       )}
                     </div>
@@ -1161,46 +1215,58 @@ export default function App() {
                   {/* APPROVED TAB */}
                   {verificationSubTab === 'approved' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {data.properties.filter(p => p.verificationStatus === 'approved').map(p => (
-                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                          <div>
-                            <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
-                            <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{p.address} • {p.district}</p>
+                      {data.properties
+                        .filter(p => p.verificationStatus === 'approved')
+                        .filter(p => pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)
+                        .map(p => (
+                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                            <div>
+                              <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
+                              <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{p.address} • {p.district}</p>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: 'bold', backgroundColor: 'var(--success-subtle)', padding: '4px 8px', borderRadius: '6px' }}>✓ Approved & Active</span>
+                              <button 
+                                style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
+                                onClick={() => setSelectedItem({ type: 'property', item: p })}
+                              >
+                                View Details
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: 'bold', backgroundColor: 'var(--success-subtle)', padding: '4px 8px', borderRadius: '6px' }}>✓ Approved & Active</span>
-                            <button 
-                              style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
-                              onClick={() => setSelectedItem({ type: 'property', item: p })}
-                            >
-                              View Details
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      {data.properties.filter(p => p.verificationStatus === 'approved' && (pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)).length === 0 && (
+                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '12px' }}>No approved properties.</div>
+                      )}
                     </div>
                   )}
 
                   {/* DECLINED TAB */}
                   {verificationSubTab === 'declined' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {data.properties.filter(p => p.verificationStatus === 'declined').map(p => (
-                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                          <div>
-                            <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
-                            <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{p.address} • {p.district}</p>
+                      {data.properties
+                        .filter(p => p.verificationStatus === 'declined')
+                        .filter(p => pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)
+                        .map(p => (
+                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                            <div>
+                              <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
+                              <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{p.address} • {p.district}</p>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 'bold', backgroundColor: 'var(--danger-subtle)', padding: '4px 8px', borderRadius: '6px' }}>✗ Suspended / Declined</span>
+                              <button 
+                                style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
+                                onClick={() => handleSendPatrolVerification(p.id)}
+                              >
+                                Request Re-Verification
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 'bold', backgroundColor: 'var(--danger-subtle)', padding: '4px 8px', borderRadius: '6px' }}>✗ Suspended / Declined</span>
-                            <button 
-                              style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
-                              onClick={() => handleSendPatrolVerification(p.id)}
-                            >
-                              Request Re-Verification
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      {data.properties.filter(p => p.verificationStatus === 'declined' && (pgAppDistrictFilter === 'All' ? true : p.district === pgAppDistrictFilter)).length === 0 && (
+                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '12px' }}>No declined properties.</div>
+                      )}
                     </div>
                   )}
 
@@ -1663,9 +1729,37 @@ export default function App() {
             {/* 8. BOOKINGS SCREEN */}
             {currentTab === 'bookings' && (
               <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <div className="panel-header">
-                  <h3>Real-time Booking Registry logs</h3>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Latest PG & Hotel checkins</span>
+                <div className="panel-header" style={{ marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h3>Real-time Booking Registry logs</h3>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Latest PG & Hotel checkins</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Keyword Search */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '6px 12px' }}>
+                      <Search size={12} color="var(--text-muted)" />
+                      <input 
+                        type="text" 
+                        placeholder="Search guest or PG..." 
+                        value={bookingsSearchQuery}
+                        onChange={e => setBookingsSearchQuery(e.target.value)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '12.5px', outline: 'none', width: '160px' }}
+                      />
+                    </div>
+                    {/* District Filter */}
+                    <select 
+                      className="filter-select" 
+                      value={bookingsDistrictFilter} 
+                      onChange={e => setBookingsDistrictFilter(e.target.value)}
+                      style={{ width: '160px', padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <option value="All">All Districts</option>
+                      <option value="NTR Vijayawada">NTR Vijayawada</option>
+                      <option value="Visakhapatnam">Visakhapatnam</option>
+                      <option value="Guntur City">Guntur City</option>
+                      <option value="Tirupati Urban">Tirupati Urban</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="table-wrapper">
                   <table>
@@ -1680,16 +1774,29 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.liveCheckins.filter(c => filterBySelectedDistrict(c.propertyName)).slice(0, 15).map(c => (
-                        <tr key={c.id}>
-                          <td className="mono-id">BK-{c.id.replace('CHK-', '')}</td>
-                          <td>{c.propertyName}</td>
-                          <td><strong>{c.guestName}</strong></td>
-                          <td>Room {c.roomNumber}</td>
-                          <td className="mono-id">{new Date(c.checkinTime).toLocaleString()}</td>
-                          <td><span className="status-indicator Cleared">Checked-In</span></td>
-                        </tr>
-                      ))}
+                      {data.liveCheckins
+                        .filter(c => {
+                          if (bookingsDistrictFilter === 'All') return true;
+                          const prop = data.properties.find(p => p.name === c.propertyName);
+                          return prop ? prop.district === bookingsDistrictFilter : false;
+                        })
+                        .filter(c => {
+                          if (!bookingsSearchQuery) return true;
+                          const q = bookingsSearchQuery.toLowerCase();
+                          return c.guestName.toLowerCase().includes(q) || c.propertyName.toLowerCase().includes(q) || c.id.toLowerCase().includes(q);
+                        })
+                        .filter(c => filterBySelectedDistrict(c.propertyName))
+                        .slice(0, 15)
+                        .map(c => (
+                          <tr key={c.id}>
+                            <td className="mono-id">BK-{c.id.replace('CHK-', '')}</td>
+                            <td>{c.propertyName}</td>
+                            <td><strong>{c.guestName}</strong></td>
+                            <td>Room {c.roomNumber}</td>
+                            <td className="mono-id">{new Date(c.checkinTime).toLocaleString()}</td>
+                            <td><span className="status-indicator Cleared">Checked-In</span></td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
@@ -1699,8 +1806,49 @@ export default function App() {
             {/* 9. OCCUPANCY SCREEN */}
             {currentTab === 'occupancy' && (
               <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <div className="panel-header">
-                  <h3>Facility Occupancy Capacity details</h3>
+                <div className="panel-header" style={{ marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h3>Facility Occupancy Capacity details</h3>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Real-time facility capacity and space utilization analytics</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Search */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '6px 12px' }}>
+                      <Search size={12} color="var(--text-muted)" />
+                      <input 
+                        type="text" 
+                        placeholder="Search PG/Hotel..." 
+                        value={occupancySearchQuery}
+                        onChange={e => setOccupancySearchQuery(e.target.value)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '12.5px', outline: 'none', width: '150px' }}
+                      />
+                    </div>
+                    {/* District Filter */}
+                    <select 
+                      className="filter-select" 
+                      value={occupancyDistrictFilter} 
+                      onChange={e => setOccupancyDistrictFilter(e.target.value)}
+                      style={{ width: '150px', padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <option value="All">All Districts</option>
+                      <option value="NTR Vijayawada">NTR Vijayawada</option>
+                      <option value="Visakhapatnam">Visakhapatnam</option>
+                      <option value="Guntur City">Guntur City</option>
+                      <option value="Tirupati Urban">Tirupati Urban</option>
+                    </select>
+                    {/* Facility Type Filter */}
+                    <select 
+                      className="filter-select" 
+                      value={occupancyTypeFilter} 
+                      onChange={e => setOccupancyTypeFilter(e.target.value)}
+                      style={{ width: '160px', padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <option value="All">All Types</option>
+                      <option value="PG Accommodation">PG Accommodation</option>
+                      <option value="Hotel / Lodge">Hotel / Lodge</option>
+                      <option value="Shared Hostel">Shared Hostel</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="table-wrapper">
                   <table>
@@ -1715,20 +1863,35 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.properties.filter(p => filterBySelectedDistrict(p.district)).map(p => (
-                        <tr key={p.id}>
-                          <td><strong>{p.name}</strong></td>
-                          <td>{p.type}</td>
-                          <td>{p.district}</td>
-                          <td>{p.totalRooms}</td>
-                          <td>{p.occupiedRooms}</td>
-                          <td className="mono-id">
-                            <span style={{ color: p.occupiedRooms/p.totalRooms > 0.85 ? 'var(--danger)' : 'var(--text-main)', fontWeight: 'bold' }}>
-                              {Math.round((p.occupiedRooms / p.totalRooms) * 100)}%
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {data.properties
+                        .filter(p => {
+                          if (occupancyDistrictFilter === 'All') return true;
+                          return p.district === occupancyDistrictFilter;
+                        })
+                        .filter(p => {
+                          if (occupancyTypeFilter === 'All') return true;
+                          return p.type === occupancyTypeFilter;
+                        })
+                        .filter(p => {
+                          if (!occupancySearchQuery) return true;
+                          const q = occupancySearchQuery.toLowerCase();
+                          return p.name.toLowerCase().includes(q) || p.district.toLowerCase().includes(q);
+                        })
+                        .filter(p => filterBySelectedDistrict(p.district))
+                        .map(p => (
+                          <tr key={p.id}>
+                            <td><strong>{p.name}</strong></td>
+                            <td>{p.type}</td>
+                            <td>{p.district}</td>
+                            <td>{p.totalRooms}</td>
+                            <td>{p.occupiedRooms}</td>
+                            <td className="mono-id">
+                              <span style={{ color: p.occupiedRooms/p.totalRooms > 0.85 ? 'var(--danger)' : 'var(--text-main)', fontWeight: 'bold' }}>
+                                {Math.round((p.occupiedRooms / p.totalRooms) * 100)}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
@@ -1738,8 +1901,49 @@ export default function App() {
             {/* 10. VERIFICATIONS SCREEN */}
             {currentTab === 'verifications' && (
               <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <div className="panel-header">
-                  <h3>Administrative Identity Verification Audit</h3>
+                <div className="panel-header" style={{ marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h3>Administrative Identity Verification Audit</h3>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Monitor guest biometric scans and verify uploaded documents</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Keyword Search */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '6px 12px' }}>
+                      <Search size={12} color="var(--text-muted)" />
+                      <input 
+                        type="text" 
+                        placeholder="Search guest or document..." 
+                        value={verificationsSearchQuery}
+                        onChange={e => setVerificationsSearchQuery(e.target.value)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '12.5px', outline: 'none', width: '150px' }}
+                      />
+                    </div>
+                    {/* Threat Status select */}
+                    <select 
+                      className="filter-select" 
+                      value={verificationsStatusFilter} 
+                      onChange={e => setVerificationsStatusFilter(e.target.value)}
+                      style={{ width: '140px', padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <option value="All">All Statuses</option>
+                      <option value="Cleared">Cleared Only</option>
+                      <option value="Watchlist Match">Watchlist Matches</option>
+                      <option value="Escalated">Escalated</option>
+                      <option value="Flagged">Flagged</option>
+                    </select>
+                    {/* Doc Type select */}
+                    <select 
+                      className="filter-select" 
+                      value={verificationsDocTypeFilter} 
+                      onChange={e => setVerificationsDocTypeFilter(e.target.value)}
+                      style={{ width: '150px', padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <option value="All">All Documents</option>
+                      <option value="Aadhar Card">Aadhar Card</option>
+                      <option value="Passport">Passport</option>
+                      <option value="Voter ID">Voter ID</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="table-wrapper">
                   <table>
@@ -1753,22 +1957,38 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.liveCheckins.filter(c => filterBySelectedDistrict(c.propertyName)).slice(0, 10).map(c => (
-                        <tr key={c.id}>
-                          <td><strong>{c.guestName}</strong></td>
-                          <td>{c.idType}</td>
-                          <td>
-                            <img src={c.idImage} style={{ width: '80px', height: '45px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-color)' }} alt="" />
-                          </td>
-                          <td><span className={`status-indicator ${c.status}`}>{c.status}</span></td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <button className="btn-action-small primary" onClick={() => handleVerifyGuest(c.id)}>Clear</button>
-                              <button className="btn-action-small" onClick={() => handleFlagGuest(c.id)}>Flag</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {data.liveCheckins
+                        .filter(c => {
+                          if (verificationsStatusFilter === 'All') return true;
+                          return c.status === verificationsStatusFilter;
+                        })
+                        .filter(c => {
+                          if (verificationsDocTypeFilter === 'All') return true;
+                          return c.idType === verificationsDocTypeFilter;
+                        })
+                        .filter(c => {
+                          if (!verificationsSearchQuery) return true;
+                          const q = verificationsSearchQuery.toLowerCase();
+                          return c.guestName.toLowerCase().includes(q) || c.idType.toLowerCase().includes(q) || c.idNumber.toLowerCase().includes(q);
+                        })
+                        .filter(c => filterBySelectedDistrict(c.propertyName))
+                        .slice(0, 10)
+                        .map(c => (
+                          <tr key={c.id}>
+                            <td><strong>{c.guestName}</strong></td>
+                            <td>{c.idType}</td>
+                            <td>
+                              <img src={c.idImage} style={{ width: '80px', height: '45px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-color)' }} alt="" />
+                            </td>
+                            <td><span className={`status-indicator ${c.status}`}>{c.status}</span></td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button className="btn-action-small primary" onClick={() => handleVerifyGuest(c.id)}>Clear</button>
+                                <button className="btn-action-small" onClick={() => handleFlagGuest(c.id)}>Flag</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
@@ -1778,8 +1998,46 @@ export default function App() {
             {/* 11. AUDITS SCREEN */}
             {currentTab === 'audits' && (
               <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <div className="panel-header">
-                  <h3>CCTV & Ground Safety Auditing</h3>
+                <div className="panel-header" style={{ marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h3>CCTV & Ground Safety Auditing</h3>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Automated telemetry monitoring for CCTV pings and safety protocols</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Keyword Search */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '6px 12px' }}>
+                      <Search size={12} color="var(--text-muted)" />
+                      <input 
+                        type="text" 
+                        placeholder="Search PG/Hotel..." 
+                        value={auditsSearchQuery}
+                        onChange={e => setAuditsSearchQuery(e.target.value)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '12.5px', outline: 'none', width: '150px' }}
+                      />
+                    </div>
+                    {/* CCTV Filter */}
+                    <select 
+                      className="filter-select" 
+                      value={auditsCctvFilter} 
+                      onChange={e => setAuditsCctvFilter(e.target.value)}
+                      style={{ width: '150px', padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <option value="All">All CCTV Status</option>
+                      <option value="Online">Online Only</option>
+                      <option value="Offline">Offline Only</option>
+                    </select>
+                    {/* Fire Safety Filter */}
+                    <select 
+                      className="filter-select" 
+                      value={auditsFireFilter} 
+                      onChange={e => setAuditsFireFilter(e.target.value)}
+                      style={{ width: '160px', padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <option value="All">All Fire safety</option>
+                      <option value="Certified">Certified Only</option>
+                      <option value="Expired">Expired Only</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="table-wrapper">
                   <table>
@@ -1794,18 +2052,32 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.properties.filter(p => filterBySelectedDistrict(p.district)).map(p => (
-                        <tr key={p.id}>
-                          <td><strong>{p.name}</strong></td>
-                          <td style={{ color: p.cctvWorking ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>{p.cctvWorking ? 'Online' : 'Offline'}</td>
-                          <td style={{ color: p.fireSafety ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>{p.fireSafety ? 'Certified' : 'Expired'}</td>
-                          <td>{p.guardDetails}</td>
-                          <td className="mono-id">{p.lastAudit}</td>
-                          <td>
-                            <button className="btn-action-small" onClick={() => handleForceAudit(p.id)}>Test camera ping</button>
-                          </td>
-                        </tr>
-                      ))}
+                      {data.properties
+                        .filter(p => {
+                          if (auditsCctvFilter === 'All') return true;
+                          return auditsCctvFilter === 'Online' ? p.cctvWorking : !p.cctvWorking;
+                        })
+                        .filter(p => {
+                          if (auditsFireFilter === 'All') return true;
+                          return auditsFireFilter === 'Certified' ? p.fireSafety : !p.fireSafety;
+                        })
+                        .filter(p => {
+                          if (!auditsSearchQuery) return true;
+                          return p.name.toLowerCase().includes(auditsSearchQuery.toLowerCase());
+                        })
+                        .filter(p => filterBySelectedDistrict(p.district))
+                        .map(p => (
+                          <tr key={p.id}>
+                            <td><strong>{p.name}</strong></td>
+                            <td style={{ color: p.cctvWorking ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>{p.cctvWorking ? 'Online' : 'Offline'}</td>
+                            <td style={{ color: p.fireSafety ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>{p.fireSafety ? 'Certified' : 'Expired'}</td>
+                            <td>{p.guardDetails}</td>
+                            <td className="mono-id">{p.lastAudit}</td>
+                            <td>
+                              <button className="btn-action-small" onClick={() => handleForceAudit(p.id)}>Test camera ping</button>
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
@@ -1863,8 +2135,48 @@ export default function App() {
             {/* 13. COMPLIANCE SCREEN */}
             {currentTab === 'compliance' && (
               <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <div className="panel-header">
-                  <h3>Properties Compliance ratings</h3>
+                <div className="panel-header" style={{ marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h3>Properties Compliance ratings</h3>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Monitor official rating audits and regulatory compliance indices</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Keyword Search */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '6px 12px' }}>
+                      <Search size={12} color="var(--text-muted)" />
+                      <input 
+                        type="text" 
+                        placeholder="Search PG/Hotel..." 
+                        value={complianceSearchQuery}
+                        onChange={e => setComplianceSearchQuery(e.target.value)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '12.5px', outline: 'none', width: '150px' }}
+                      />
+                    </div>
+                    {/* Safety Score Filter */}
+                    <select 
+                      className="filter-select" 
+                      value={complianceScoreFilter} 
+                      onChange={e => setComplianceScoreFilter(e.target.value)}
+                      style={{ width: '170px', padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <option value="All">All Compliance Scores</option>
+                      <option value="High">High (&gt;85%)</option>
+                      <option value="Mid">Needs Review (50-85%)</option>
+                      <option value="Low">Non-Compliant (&lt;50%)</option>
+                    </select>
+                    {/* Operating Status Filter */}
+                    <select 
+                      className="filter-select" 
+                      value={complianceStatusFilter} 
+                      onChange={e => setComplianceStatusFilter(e.target.value)}
+                      style={{ width: '150px', padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      <option value="All">All Statuses</option>
+                      <option value="verified">Verified Only</option>
+                      <option value="pending">Pending Only</option>
+                      <option value="flagged">Flagged Only</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="table-wrapper">
                   <table>
@@ -1878,24 +2190,40 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.properties.filter(p => filterBySelectedDistrict(p.district)).map(p => (
-                        <tr key={p.id}>
-                          <td><strong>{p.name}</strong></td>
-                          <td>{p.address}</td>
-                          <td>
-                            <span className={`score-badge ${p.complianceScore > 85 ? 'high' : (p.complianceScore > 50 ? 'mid' : 'low')}`}>
-                              {p.complianceScore}%
-                            </span>
-                          </td>
-                          <td><span className={`status-indicator ${p.status}`}>{p.status}</span></td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <button className="btn-action-small primary" onClick={() => handleVerifyProperty(p.id)}>Verify</button>
-                              <button className="btn-action-small" onClick={() => handleFlagProperty(p.id)}>Flag</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {data.properties
+                        .filter(p => {
+                          if (complianceStatusFilter === 'All') return true;
+                          return p.status === complianceStatusFilter;
+                        })
+                        .filter(p => {
+                          if (complianceScoreFilter === 'All') return true;
+                          if (complianceScoreFilter === 'High') return p.complianceScore > 85;
+                          if (complianceScoreFilter === 'Mid') return p.complianceScore >= 50 && p.complianceScore <= 85;
+                          return p.complianceScore < 50;
+                        })
+                        .filter(p => {
+                          if (!complianceSearchQuery) return true;
+                          return p.name.toLowerCase().includes(complianceSearchQuery.toLowerCase()) || p.address.toLowerCase().includes(complianceSearchQuery.toLowerCase());
+                        })
+                        .filter(p => filterBySelectedDistrict(p.district))
+                        .map(p => (
+                          <tr key={p.id}>
+                            <td><strong>{p.name}</strong></td>
+                            <td>{p.address}</td>
+                            <td>
+                              <span className={`score-badge ${p.complianceScore > 85 ? 'high' : (p.complianceScore > 50 ? 'mid' : 'low')}`}>
+                                {p.complianceScore}%
+                              </span>
+                            </td>
+                            <td><span className={`status-indicator ${p.status}`}>{p.status}</span></td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button className="btn-action-small primary" onClick={() => handleVerifyProperty(p.id)}>Verify</button>
+                                <button className="btn-action-small" onClick={() => handleFlagProperty(p.id)}>Flag</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
@@ -2296,31 +2624,95 @@ export default function App() {
                     
                     {/* Left Column: Authorized Officers list */}
                     <div style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px' }}>
-                      <h5 style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '10px' }}>Active Security Policies</h5>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                        <h5 style={{ fontSize: '11px', fontWeight: 'bold' }}>Active Security Policies</h5>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <input 
+                            type="text" 
+                            placeholder="Search officer..." 
+                            value={usersSearchQuery}
+                            onChange={e => setUsersSearchQuery(e.target.value)}
+                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '3px 8px', fontSize: '10.5px', color: 'var(--text-main)', outline: 'none', width: '100px' }}
+                          />
+                          <select 
+                            className="filter-select"
+                            value={usersDistrictFilter}
+                            onChange={e => setUsersDistrictFilter(e.target.value)}
+                            style={{ width: '90px', padding: '2px 5px', fontSize: '10.5px', height: '22px' }}
+                          >
+                            <option value="All">All Regions</option>
+                            <option value="NTR Vijayawada">NTR</option>
+                            <option value="Visakhapatnam">Visakhapatnam</option>
+                            <option value="Guntur City">Guntur</option>
+                            <option value="Tirupati Urban">Tirupati</option>
+                            <option value="Vijayawada">Vijayawada</option>
+                          </select>
+                          <select 
+                            className="filter-select"
+                            value={usersNationalityFilter}
+                            onChange={e => setUsersNationalityFilter(e.target.value)}
+                            style={{ width: '85px', padding: '2px 5px', fontSize: '10.5px', height: '22px' }}
+                          >
+                            <option value="All">All Ranks</option>
+                            <option value="DCP">DCP</option>
+                            <option value="Inspector">Inspector</option>
+                            <option value="Sub-Inspector">Sub-Inspector</option>
+                          </select>
+                          <select 
+                            className="filter-select"
+                            value={usersStatusFilter}
+                            onChange={e => setUsersStatusFilter(e.target.value)}
+                            style={{ width: '90px', padding: '2px 5px', fontSize: '10.5px', height: '22px' }}
+                          >
+                            <option value="All">All Shifts</option>
+                            <option value="Day">Day Shift</option>
+                            <option value="Night">Night Shift</option>
+                            <option value="Unlimited">24/7</option>
+                          </select>
+                        </div>
+                      </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto' }}>
-                        {officers.map(off => (
-                          <div key={off.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                            <div>
-                              <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{off.name} <span style={{ color: 'var(--primary)', fontSize: '10px' }}>[{off.rank}]</span></div>
-                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                Region Bound: <strong>{off.district}</strong> • Active: <strong>{off.shift}</strong>
+                        {officers
+                          .filter(off => {
+                            if (usersDistrictFilter === 'All') return true;
+                            return off.district === usersDistrictFilter;
+                          })
+                          .filter(off => {
+                            if (usersNationalityFilter === 'All') return true;
+                            return off.rank === usersNationalityFilter;
+                          })
+                          .filter(off => {
+                            if (usersStatusFilter === 'All') return true;
+                            return off.shift.toLowerCase().includes(usersStatusFilter.toLowerCase());
+                          })
+                          .filter(off => {
+                            if (!usersSearchQuery) return true;
+                            const q = usersSearchQuery.toLowerCase();
+                            return off.name.toLowerCase().includes(q) || off.rank.toLowerCase().includes(q);
+                          })
+                          .map(off => (
+                            <div key={off.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                              <div>
+                                <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{off.name} <span style={{ color: 'var(--primary)', fontSize: '10px' }}>[{off.rank}]</span></div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                  Region Bound: <strong>{off.district}</strong> • Active: <strong>{off.shift}</strong>
+                                </div>
+                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                                  {off.permissions.map((p, idx) => (
+                                    <span key={idx} style={{ fontSize: '9px', backgroundColor: 'var(--border-color)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-main)' }}>{p}</span>
+                                  ))}
+                                </div>
                               </div>
-                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
-                                {off.permissions.map((p, idx) => (
-                                  <span key={idx} style={{ fontSize: '9px', backgroundColor: 'var(--border-color)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-main)' }}>{p}</span>
-                                ))}
-                              </div>
+                              {off.id !== 1 && (
+                                <button 
+                                  onClick={() => setOfficers(officers.filter(o => o.id !== off.id))}
+                                  style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}
+                                >
+                                  Revoke
+                                </button>
+                              )}
                             </div>
-                            {off.id !== 1 && (
-                              <button 
-                                onClick={() => setOfficers(officers.filter(o => o.id !== off.id))}
-                                style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}
-                              >
-                                Revoke
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                          ))}
                       </div>
                     </div>
 
