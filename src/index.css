@@ -430,6 +430,7 @@ h1, h2, h3, h4, h5, h6 {
 .dashboard-content {
   display: grid;
   grid-template-columns: 1fr 310px;
+  grid-template-rows: minmax(0, 1fr);
   height: calc(100vh - 54px);
   max-height: calc(100vh - 54px);
   overflow: hidden;
