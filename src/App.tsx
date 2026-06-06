@@ -1096,7 +1096,7 @@ export default function App() {
 
             {/* ─── NEW TABS: 3. PG APPLICATIONS SURVEILLANCE & WORKFLOW ─── */}
             {currentTab === 'pg-applications' && (
-              <motion.div className="glass-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <motion.div className="glass-card" style={{ overflow: 'visible' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 
                 <div className="panel-header" style={{ marginBottom: '14px' }}>
                   <div>
@@ -1566,7 +1566,7 @@ export default function App() {
 
             {/* 5. SEARCH SCREEN (WITH COUNTRY AND KEYWORD SEARCH) */}
             {currentTab === 'search' && (
-              <motion.div className="glass-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <motion.div className="glass-card" style={{ overflow: 'visible' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <div className="panel-header" style={{ marginBottom: '14px' }}>
                   <h3>Deep Security Search Console</h3>
                 </div>
@@ -2193,7 +2193,7 @@ export default function App() {
 
             {/* ─── ENHANCED 16. SETTINGS SCREEN WITH INTERACTIVE CONTROLS ─── */}
             {currentTab === 'settings' && (
-              <motion.div className="glass-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <motion.div className="glass-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'visible' }}>
                 <div className="panel-header">
                   <h3>System Settings & Administrative Controls</h3>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Secure API & Command Routing Configuration</span>

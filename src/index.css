@@ -676,7 +676,7 @@ tr:hover td {
   color: var(--text-muted);
 }
 
-.filter-select, .filter-input {
+.filter-input {
   width: 100%;
   background-color: var(--bg-input);
   border: 1px solid var(--border-color);
@@ -686,10 +686,134 @@ tr:hover td {
   font-size: 12.5px;
   outline: none;
   font-family: var(--font-sans);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.filter-select:focus, .filter-input:focus {
+.filter-input:focus {
   border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(200, 241, 53, 0.15);
+}
+
+select, .filter-select {
+  width: 100%;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-main);
+  padding: 8px 10px;
+  font-size: 12.5px;
+  outline: none;
+  font-family: var(--font-sans);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23C8F135' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  padding-right: 32px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+}
+
+[data-theme="light"] select, [data-theme="light"] .filter-select {
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23444444' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+select:hover, .filter-select:hover {
+  border-color: var(--border-hover);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="light"] select:hover, [data-theme="light"] .filter-select:hover {
+  background-color: #f7f7f7;
+}
+
+select:focus, .filter-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(200, 241, 53, 0.15);
+}
+
+select option, .filter-select option {
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  padding: 10px;
+}
+
+/* ─── BUTTONS REDESIGN ─── */
+.btn-action-small {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all var(--transition-fast);
+}
+
+[data-theme="light"] .btn-action-small {
+  background-color: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-action-small:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-hover);
+}
+
+[data-theme="light"] .btn-action-small:hover {
+  background-color: #f7f7f7;
+}
+
+.btn-action-small.primary {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #000000;
+}
+
+.btn-action-small.primary:hover {
+  background-color: hsl(78, 85%, 45%);
+  border-color: hsl(78, 85%, 45%);
+  box-shadow: 0 0 8px rgba(200, 241, 53, 0.25);
+}
+
+.btn-action-small.success {
+  background-color: rgba(46, 204, 113, 0.1);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.btn-action-small.success:hover {
+  background-color: var(--success);
+  color: #000;
+}
+
+.btn-action-small.danger {
+  background-color: rgba(231, 76, 60, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-action-small.danger:hover {
+  background-color: var(--danger);
+  color: #ffffff;
+}
+
+.btn-action-small.warning {
+  background-color: rgba(241, 196, 15, 0.1);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.btn-action-small.warning:hover {
+  background-color: var(--warning);
+  color: #000000;
 }
 
 /* ─── DETAILS DRAWER ─── */
@@ -807,6 +931,8 @@ tr:hover td {
   padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid var(--border-color);
+  background-color: rgba(255, 255, 255, 0.03);
+  color: var(--text-main);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -814,12 +940,64 @@ tr:hover td {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
-.btn-action-large.success { background-color: var(--success); color: #fff; border-color: var(--success); }
-.btn-action-large.warning { background-color: var(--warning-subtle); color: var(--warning); border-color: var(--warning); }
-.btn-action-large.danger { background-color: var(--danger-subtle); color: var(--danger); border-color: var(--danger); }
+[data-theme="light"] .btn-action-large {
+  background-color: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-action-large:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-hover);
+}
+
+[data-theme="light"] .btn-action-large:hover {
+  background-color: #f7f7f7;
+}
+
+.btn-action-large.primary {
+  background-color: var(--primary);
+  color: #000;
+  border-color: var(--primary);
+}
+
+.btn-action-large.primary:hover {
+  background-color: hsl(78, 85%, 45%);
+  border-color: hsl(78, 85%, 45%);
+  box-shadow: 0 0 12px rgba(200, 241, 53, 0.25);
+}
+
+.btn-action-large.success { 
+  background-color: rgba(46, 204, 113, 0.1); 
+  color: var(--success); 
+  border-color: var(--success); 
+}
+.btn-action-large.success:hover { 
+  background-color: var(--success); 
+  color: #000; 
+}
+
+.btn-action-large.warning { 
+  background-color: rgba(241, 196, 15, 0.1); 
+  color: var(--warning); 
+  border-color: var(--warning); 
+}
+.btn-action-large.warning:hover { 
+  background-color: var(--warning); 
+  color: #000; 
+}
+
+.btn-action-large.danger { 
+  background-color: rgba(231, 76, 60, 0.1); 
+  color: var(--danger); 
+  border-color: var(--danger); 
+}
+.btn-action-large.danger:hover { 
+  background-color: var(--danger); 
+  color: #fff; 
+}
 
 /* ─── RIGHT RAIL (LIVE INTEL STREAM) ─── */
 .right-rail {
