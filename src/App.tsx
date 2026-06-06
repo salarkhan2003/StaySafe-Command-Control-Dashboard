@@ -26,7 +26,8 @@ import {
   Clock,
   Send,
   RefreshCw,
-  HelpCircle
+  HelpCircle,
+  Video
 } from 'lucide-react';
 import { INITIAL_MOCK_DATA, Incident, CheckIn } from './data';
 
@@ -60,6 +61,23 @@ export default function App() {
   const [facialRecognition, setFacialRecognition] = useState(true);
   const [stationCode, setStationCode] = useState('AP-NTR-VJA-01');
   const [apiKey, setApiKey] = useState('sk_live_safestay_police_8827c1a82f3');
+
+  // --- ABAC ROLE DEFINITIONS ---
+  const [officers, setOfficers] = useState([
+    { id: 1, name: 'DCP K. Saritha, IPS', rank: 'DCP', district: 'Vijayawada', permissions: ['CCTV Access', 'Verify PG', 'Watchlist Access', 'Approve PG', 'Patrol Dispatch'], shift: '24/7 Unlimited' },
+    { id: 2, name: 'SI Ramesh Kumar', rank: 'Sub-Inspector', district: 'NTR Vijayawada', permissions: ['CCTV Access', 'Verify PG'], shift: 'Day Shift (08:00 - 16:00)' },
+    { id: 3, name: 'Inspector V. Murthy', rank: 'Inspector', district: 'Guntur City', permissions: ['CCTV Access', 'Patrol Dispatch'], shift: 'Night Shift (16:00 - 00:00)' }
+  ]);
+  const [newOfficerName, setNewOfficerName] = useState('');
+  const [newOfficerRank, setNewOfficerRank] = useState('Sub-Inspector');
+  const [newOfficerDistrict, setNewOfficerDistrict] = useState('NTR Vijayawada');
+  const [newOfficerPermissions, setNewOfficerPermissions] = useState<string[]>(['CCTV Access']);
+  const [newOfficerShift, setNewOfficerShift] = useState('Day Shift (08:00 - 16:00)');
+
+  // ABAC Access Simulator States
+  const [simOfficerId, setSimOfficerId] = useState<number>(1);
+  const [simResource, setSimResource] = useState<string>('Approve PG');
+  const [simResult, setSimResult] = useState<{ allowed: boolean; message: string } | null>(null);
 
   // Map references
   const mapRef = useRef<any>(null);
@@ -595,6 +613,7 @@ export default function App() {
     { id: 'registry', label: 'Registry', icon: FileText },
     { id: 'pg-applications', label: 'PG Applications', icon: Clock }, // New Workflow Tab
     { id: 'livemap', label: 'Live Map', icon: Globe },
+    { id: 'cctv', label: 'CCTV Feeds', icon: Video }, // New Dedicated Tab
     { id: 'search', label: 'Search', icon: Search },
     { id: 'alerts', label: 'Alerts', icon: Bell },
     { id: 'watchlist', label: 'Watchlist', icon: Lock },
@@ -667,7 +686,7 @@ export default function App() {
               src="/SAFE_STAY_APP_LOGO.jpeg" 
               alt="AP Police Commissioner Logo" 
               className="user-avatar" 
-              style={{ objectFit: 'contain', backgroundColor: 'var(--border-color)', padding: '2px' }}
+              style={{ objectFit: 'contain', backgroundColor: '#ffffff', padding: '1px', borderRadius: '4px' }}
             />
             {!sidebarCollapsed && (
               <div className="user-info">
@@ -719,7 +738,7 @@ export default function App() {
         </header>
 
         {/* WORKSPACE CONTENT SCREEN */}
-        <div className="dashboard-content" style={{ gridTemplateColumns: (currentTab === 'livemap' || currentTab === 'search' || currentTab === 'pg-applications') ? '1fr' : '1fr 310px' }}>
+        <div className="dashboard-content" style={{ gridTemplateColumns: (currentTab === 'livemap' || currentTab === 'search' || currentTab === 'pg-applications' || currentTab === 'cctv') ? '1fr' : '1fr 310px' }}>
           
           <div className="dashboard-center">
             
@@ -968,68 +987,6 @@ export default function App() {
                   </motion.div>
                 )}
 
-                {/* CCTV SURVEILLANCE FEED MONITORING GRID */}
-                <motion.div 
-                  className="glass-card"
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.25 }}
-                >
-                  <div className="panel-header" style={{ marginBottom: '12px' }}>
-                    <div>
-                      <h3>Live CCTV Safety Feed Monitoring Grid</h3>
-                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Real-time camera feed integrations from verified PG accommodations.</p>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span className="pulse-dot" style={{ width: '8px', height: '8px', backgroundColor: 'var(--success)', borderRadius: '50%' }}></span>
-                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--success)' }}>ALL FEEDS ONLINE</span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                    {[
-                      { name: 'NTR PG Entrance', location: 'Vijayawada', status: 'REC', fps: '25 fps', img: 'https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=300&q=80' },
-                      { name: 'Vizag Girls Hostel Gate', location: 'Visakhapatnam', status: 'REC', fps: '24 fps', img: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=300&q=80' },
-                      { name: 'Guntur PG Lobby Lobby', location: 'Guntur', status: 'REC', fps: '22 fps', img: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=300&q=80' },
-                      { name: 'Tirupati PG Corridor B', location: 'Tirupati', status: 'REC', fps: '30 fps', img: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=300&q=80' }
-                    ].map((feed, idx) => (
-                      <div 
-                        key={idx} 
-                        onClick={() => openAlert("CCTV Camera Ping", `Verified connection to ${feed.name} CCTV channel. Packet loss: 0%. Status: Operating.`)}
-                        style={{ position: 'relative', height: '120px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', cursor: 'pointer' }}
-                      >
-                        {/* REC Indicators */}
-                        <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', alignItems: 'center', gap: '4px', zIndex: 2 }}>
-                          <span style={{ width: '6px', height: '6px', backgroundColor: 'var(--danger)', borderRadius: '50%', display: 'inline-block' }}></span>
-                          <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#fff', textShadow: '1px 1px 2px #000' }}>{feed.status}</span>
-                        </div>
-                        <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '9px', color: '#fff', zIndex: 2, textShadow: '1px 1px 2px #000' }}>
-                          {feed.fps}
-                        </div>
-                        
-                        {/* Simulation Graphic */}
-                        <div 
-                          style={{ 
-                            width: '100%', 
-                            height: '100%', 
-                            backgroundImage: `linear-gradient(rgba(0,255,0,0.03) 50%, rgba(0,0,0,0.25) 50%), url('${feed.img}')`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                            filter: 'grayscale(0.5) contrast(1.1) brightness(0.7)',
-                            position: 'relative'
-                          }}
-                        >
-                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%)', backgroundSize: '100% 4px' }}></div>
-                        </div>
-
-                        <div style={{ position: 'absolute', bottom: '8px', left: '8px', zIndex: 2, textShadow: '1px 1px 2px #000' }}>
-                          <div style={{ fontSize: '10.5px', fontWeight: 'bold', color: '#fff' }}>{feed.name}</div>
-                          <div style={{ fontSize: '9px', color: '#ccc' }}>{feed.location} Surveillance</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
 
                 {/* GPS PATROL DISPATCH ROSTER */}
                 <motion.div 
@@ -1331,6 +1288,109 @@ export default function App() {
 
                 </div>
 
+              </motion.div>
+            )}
+
+            {/* ─── NEW SECTION: CCTV FEEDS SCREEN ─── */}
+            {currentTab === 'cctv' && (
+              <motion.div className="glass-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="panel-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '14px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
+                      <Video size={16} style={{ color: 'var(--primary)' }} /> Live CCTV Surveillance Control Center
+                    </h3>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Real-time high-definition camera stream telemetry integrated directly from PG guest entrances, lobbies, and corridors.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(200, 241, 53, 0.05)', border: '1px solid var(--primary-subtle)', padding: '6px 12px', borderRadius: '20px' }}>
+                      <span className="pulse-dot" style={{ width: '8px', height: '8px', backgroundColor: 'var(--primary)', borderRadius: '50%' }}></span>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>4 STREAMS ONLINE</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CCTV Control Panel Controls */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', backgroundColor: 'var(--bg-input)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div className="filter-group">
+                    <label style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>CAMERA FEED SELECTOR</label>
+                    <select className="filter-select" style={{ fontSize: '11.5px', padding: '6px 10px' }}>
+                      <option>All Active Channels</option>
+                      <option>NTR Vijayawada Sector</option>
+                      <option>Visakhapatnam District</option>
+                      <option>Guntur District</option>
+                      <option>Tirupati Region</option>
+                    </select>
+                  </div>
+                  <div className="filter-group">
+                    <label style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>RESOLUTION / FRAME RATE</label>
+                    <select className="filter-select" style={{ fontSize: '11.5px', padding: '6px 10px' }}>
+                      <option>1080p HD (Adaptive FPS)</option>
+                      <option>720p (Low Bandwidth)</option>
+                      <option>4K Ultra (Command Center Priority)</option>
+                    </select>
+                  </div>
+                  <div className="filter-group">
+                    <label style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>AI FACIAL AUDITING</label>
+                    <button className="btn-action-large success" onClick={() => openAlert("AI Biometrics Enabled", "Facial recognition templates successfully loaded. Automated Aadhaar blacklist parsing active.")} style={{ height: '32px', fontSize: '11px', width: '100%', padding: '0 10px' }}>
+                      Enable Biometric Matcher
+                    </button>
+                  </div>
+                </div>
+
+                {/* CCTV Stream Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+                  {[
+                    { name: 'NTR PG Entrance', location: 'Vijayawada', status: 'REC', fps: '25 fps', img: 'https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=500&q=80', ip: '192.168.1.104', bitrate: '4.2 Mbps' },
+                    { name: 'Vizag Girls Hostel Gate', location: 'Visakhapatnam', status: 'REC', fps: '24 fps', img: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=500&q=80', ip: '192.168.2.89', bitrate: '3.8 Mbps' },
+                    { name: 'Guntur PG Lobby Lobby', location: 'Guntur', status: 'REC', fps: '22 fps', img: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=500&q=80', ip: '192.168.3.120', bitrate: '3.1 Mbps' },
+                    { name: 'Tirupati PG Corridor B', location: 'Tirupati', status: 'REC', fps: '30 fps', img: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=500&q=80', ip: '192.168.4.15', bitrate: '5.0 Mbps' }
+                  ].map((feed, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => openAlert("CCTV Telemetry", `Stream: ${feed.name}\nSource IP: ${feed.ip}\nBitrate: ${feed.bitrate}\nDistrict: ${feed.location}\nIntegrity test passed. CCTV ping: 14ms.`)}
+                      style={{ position: 'relative', height: '200px', backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)', cursor: 'pointer', boxShadow: 'var(--shadow-md)' }}
+                      className="cctv-card"
+                    >
+                      {/* Top Bar Indicators */}
+                      <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', alignItems: 'center', gap: '6px', zIndex: 2, backgroundColor: 'rgba(0,0,0,0.6)', padding: '4px 8px', borderRadius: '4px' }}>
+                        <span style={{ width: '6px', height: '6px', backgroundColor: 'var(--danger)', borderRadius: '50%', display: 'inline-block' }}></span>
+                        <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#fff' }}>{feed.status}</span>
+                      </div>
+                      <div style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '9px', color: '#fff', zIndex: 2, backgroundColor: 'rgba(0,0,0,0.6)', padding: '4px 8px', borderRadius: '4px', display: 'flex', gap: '8px' }}>
+                        <span>{feed.fps}</span>
+                        <span style={{ color: 'var(--primary)' }}>{feed.bitrate}</span>
+                      </div>
+                      
+                      {/* Simulation Stream */}
+                      <div 
+                        style={{ 
+                          width: '100%', 
+                          height: '100%', 
+                          backgroundImage: `linear-gradient(rgba(0,255,0,0.02) 50%, rgba(0,0,0,0.3) 50%), url('${feed.img}')`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          filter: 'grayscale(0.4) contrast(1.1) brightness(0.8)',
+                          position: 'relative'
+                        }}
+                      >
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%)', backgroundSize: '100% 4px' }}></div>
+                      </div>
+
+                      {/* Bottom Info Bar */}
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 2, padding: '12px', background: 'linear-gradient(transparent, rgba(0,0,0,0.9))', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                        <div>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#fff' }}>{feed.name}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{feed.location} Surveillance • IP: {feed.ip}</div>
+                        </div>
+                        <button className="btn-action-small" style={{ border: '1px solid rgba(255,255,255,0.2)', color: '#fff', background: 'rgba(255,255,255,0.05)', fontSize: '9px', padding: '3px 8px' }}>
+                          Ping Telemetry
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </motion.div>
             )}
 
@@ -1917,47 +1977,165 @@ export default function App() {
 
             {/* 14. REPORTS SCREEN */}
             {currentTab === 'reports' && (
-              <motion.div className="analytics-grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div className="glass-card graph-card">
-                  <h3>District occupancy density comparisons</h3>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '20px 40px', height: '220px' }}>
-                    {data.districts.map(d => (
-                      <div key={d.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '10px' }}>
-                        <div style={{ position: 'relative', width: '32px', height: '140px', backgroundColor: 'var(--bg-input)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                          <div style={{ 
-                            position: 'absolute', 
-                            bottom: 0, 
-                            left: 0, 
-                            width: '100%', 
-                            height: `${d.occupancy}%`, 
-                            background: d.occupancy > 78 ? 'linear-gradient(to top, var(--danger), #f87171)' : 'linear-gradient(to top, var(--primary), #82ca9d)',
-                            borderRadius: '4px'
-                          }}></div>
-                        </div>
-                        <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{d.id.replace('AP-', '')}</span>
-                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{d.occupancy}%</span>
-                      </div>
-                    ))}
+              <motion.div className="reports-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                
+                {/* Reports Header & Actions */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-main)' }}>AP Command Control Audits & Analytics Registry</h3>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>System safety index compiled logs, occupancy comparisons, and patrol response tracking.</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="btn-action-large" onClick={() => openAlert("Export CSV", "Compiling security metrics into safestay_audit_log_2026.csv. Download initiated.")} style={{ padding: '6px 12px', fontSize: '11.5px', border: '1px solid var(--border-color)', width: 'auto', height: '30px' }}>
+                      Export CSV
+                    </button>
+                    <button className="btn-action-large primary" onClick={() => openAlert("Export PDF", "Generating official AP Police Command Control Report. PDF compiled successfully.")} style={{ padding: '6px 12px', fontSize: '11.5px', width: 'auto', height: '30px' }}>
+                      Export PDF Report
+                    </button>
                   </div>
                 </div>
 
-                <div className="glass-card graph-card">
-                  <h3>Accommodations ratio distributions</h3>
-                  <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '20px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary)' }}>60%</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Paying Guest Hostels (PGs)</div>
+                {/* KPI Metrics row */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+                  <div style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>Audits Conducted</span>
+                    <h4 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--primary)', marginTop: '4px' }}>432</h4>
+                    <span style={{ fontSize: '9.5px', color: 'var(--success)', fontWeight: 'bold' }}>+24% this week</span>
+                  </div>
+                  <div style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>Pending Patrol Checks</span>
+                    <h4 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--warning)', marginTop: '4px' }}>6 PGs</h4>
+                    <span style={{ fontSize: '9.5px', color: 'var(--text-muted)' }}>Assigned to ground units</span>
+                  </div>
+                  <div style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>Mean Compliance Score</span>
+                    <h4 style={{ fontSize: '18px', fontWeight: '800', color: '#82ca9d', marginTop: '4px' }}>94.2%</h4>
+                    <span style={{ fontSize: '9.5px', color: 'var(--success)', fontWeight: 'bold' }}>✓ High Safety Standard</span>
+                  </div>
+                  <div style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>SOS Dispatch SLA</span>
+                    <h4 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--danger)', marginTop: '4px' }}>4.2 min</h4>
+                    <span style={{ fontSize: '9.5px', color: 'var(--danger)', fontWeight: 'bold' }}>Target: &lt; 5.0 mins</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px' }} className="sector-analysis-grid">
+                  {/* Left Graph: District Occupancy Comparisons */}
+                  <div className="glass-card graph-card" style={{ padding: '16px' }}>
+                    <h3 style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '14px', color: 'var(--text-main)' }}>District Occupancy & Security Density</h3>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '20px 10px', height: '170px' }}>
+                      {data.districts.map(d => (
+                        <div key={d.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '10px' }}>
+                          <div style={{ position: 'relative', width: '28px', height: '100px', backgroundColor: 'var(--bg-input)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                            <div style={{ 
+                              position: 'absolute', 
+                              bottom: 0, 
+                              left: 0, 
+                              width: '100%', 
+                              height: `${d.occupancy}%`, 
+                              background: d.occupancy > 78 ? 'linear-gradient(to top, var(--danger), #f87171)' : 'linear-gradient(to top, var(--primary), #82ca9d)',
+                              borderRadius: '4px'
+                            }}></div>
+                          </div>
+                          <span style={{ fontSize: '10px', fontWeight: 'bold' }}>{d.id.replace('AP-', '')}</span>
+                          <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{d.occupancy}%</span>
+                        </div>
+                      ))}
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--success)' }}>30%</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Verified Hotels</div>
+                  </div>
+
+                  {/* Right Panel: Accommodations Safety Distributions */}
+                  <div className="glass-card graph-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <h3 style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '14px', color: 'var(--text-main)' }}>Safety & Compliance Distributions</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>
+                          <span>Paying Guest Hostels (PGs)</span>
+                          <span style={{ color: 'var(--primary)' }}>60% • High Audits</span>
+                        </div>
+                        <div style={{ height: '6px', backgroundColor: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: '60%', height: '100%', backgroundColor: 'var(--primary)' }}></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>
+                          <span>Verified Hotels</span>
+                          <span style={{ color: 'var(--success)' }}>30% • Monthly Sweep</span>
+                        </div>
+                        <div style={{ height: '6px', backgroundColor: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: '30%', height: '100%', backgroundColor: 'var(--success)' }}></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>
+                          <span>Guesthouses</span>
+                          <span style={{ color: 'var(--warning)' }}>10% • Bi-Weekly Sweep</span>
+                        </div>
+                        <div style={{ height: '6px', backgroundColor: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: '10%', height: '100%', backgroundColor: 'var(--warning)' }}></div>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--warning)' }}>10%</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Guesthouses</div>
+
+                    <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: '12px' }}>
+                      <button 
+                        className="btn-action-large success" 
+                        onClick={() => openAlert("Safety Audit", "Initiating system-wide compliance sweep. Estimated time: 45 seconds.")}
+                        style={{ flex: 1, fontSize: '11px', height: '30px' }}
+                      >
+                        Run Safety Audit Sweep
+                      </button>
                     </div>
                   </div>
                 </div>
+
+                {/* Safety Violations Log Table */}
+                <div className="glass-card table-container">
+                  <div className="panel-header">
+                    <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-main)' }}>Flagged Safety Violations Log (Real-time Warnings)</h3>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Latest telemetry warning logs</span>
+                  </div>
+                  <div className="table-wrapper">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Property Name</th>
+                          <th>Violation Type</th>
+                          <th>Recorded Time</th>
+                          <th>Severity</th>
+                          <th>Quick Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { property: 'Sri Krishna Luxury Stay', type: 'CCTV Camera Offline', time: '14 mins ago', severity: 'Critical', color: 'var(--danger)' },
+                          { property: 'Venkata Sai Women PG', type: 'Panic Button Triggered', time: '2 mins ago', severity: 'Critical', color: 'var(--danger)' },
+                          { property: 'Elite Residency for Ladies', type: 'Expired Fire Certificate', time: '1 hour ago', severity: 'Warning', color: 'var(--warning)' },
+                          { property: 'Sri Venkateswara Boys PG', type: 'Document Re-upload Needed', time: '3 hours ago', severity: 'Review', color: 'var(--text-muted)' },
+                          { property: 'New Capital Guest Stay', type: 'Unregistered Foreign Tenant', time: '5 hours ago', severity: 'Critical', color: 'var(--danger)' }
+                        ].map((v, i) => (
+                          <tr key={i}>
+                            <td><strong>{v.property}</strong></td>
+                            <td>{v.type}</td>
+                            <td className="mono-id">{v.time}</td>
+                            <td>
+                              <span style={{ color: v.color, fontWeight: 'bold', fontSize: '11px' }}>
+                                {v.severity}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button className="btn-action-small primary" onClick={() => openAlert("Officer Dispatch", `Command patrol vehicle AP-PATROL-04 routed to ${v.property} for physical safety audit.`)}>Dispatch Patrol</button>
+                                <button className="btn-action-small" onClick={() => openAlert("Warning Sent", `Automated notice regarding '${v.type}' dispatched to property owner.`)}>Send Warning</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
               </motion.div>
             )}
 
@@ -2176,13 +2354,227 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* ─── ABAC ROLE ACCESS POLICY & CONTROL PANEL ─── */}
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px', marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <h4 style={{ fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
+                      <Shield size={14} style={{ color: 'var(--primary)' }} /> Attribute-Based Access Control (ABAC) Policies
+                    </h4>
+                    <p style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Configure granular role permissions, regional jurisdiction binds, and temporal constraints for command officers.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px' }} className="sector-analysis-grid">
+                    
+                    {/* Left Column: Authorized Officers list */}
+                    <div style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px' }}>
+                      <h5 style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '10px' }}>Active Security Policies</h5>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto' }}>
+                        {officers.map(off => (
+                          <div key={off.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                            <div>
+                              <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{off.name} <span style={{ color: 'var(--primary)', fontSize: '10px' }}>[{off.rank}]</span></div>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                Region Bound: <strong>{off.district}</strong> • Active: <strong>{off.shift}</strong>
+                              </div>
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                                {off.permissions.map((p, idx) => (
+                                  <span key={idx} style={{ fontSize: '9px', backgroundColor: 'var(--border-color)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-main)' }}>{p}</span>
+                                ))}
+                              </div>
+                            </div>
+                            {off.id !== 1 && (
+                              <button 
+                                onClick={() => setOfficers(officers.filter(o => o.id !== off.id))}
+                                style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}
+                              >
+                                Revoke
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Right Column: Add Officer Form */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderLeft: '1px solid var(--border-color)', paddingLeft: '20px' }}>
+                      <h5 style={{ fontSize: '11px', fontWeight: 'bold' }}>Assign New Security Attribute Bind</h5>
+                      
+                      <div className="filter-group" style={{ margin: 0 }}>
+                        <input 
+                          type="text" 
+                          placeholder="Officer Full Name" 
+                          className="filter-input" 
+                          value={newOfficerName} 
+                          onChange={e => setNewOfficerName(e.target.value)}
+                          style={{ padding: '6px 10px', fontSize: '11.5px' }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div className="filter-group" style={{ margin: 0 }}>
+                          <select 
+                            className="filter-select" 
+                            value={newOfficerRank} 
+                            onChange={e => setNewOfficerRank(e.target.value)}
+                            style={{ padding: '6px 10px', fontSize: '11px' }}
+                          >
+                            <option value="DCP">DCP (IPS)</option>
+                            <option value="Inspector">Inspector</option>
+                            <option value="Sub-Inspector">Sub-Inspector</option>
+                            <option value="Constable">Constable</option>
+                          </select>
+                        </div>
+                        <div className="filter-group" style={{ margin: 0 }}>
+                          <select 
+                            className="filter-select" 
+                            value={newOfficerDistrict} 
+                            onChange={e => setNewOfficerDistrict(e.target.value)}
+                            style={{ padding: '6px 10px', fontSize: '11px' }}
+                          >
+                            <option value="NTR Vijayawada">NTR Vijayawada</option>
+                            <option value="Visakhapatnam">Visakhapatnam</option>
+                            <option value="Guntur City">Guntur City</option>
+                            <option value="Tirupati Urban">Tirupati Urban</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="filter-group" style={{ margin: 0 }}>
+                        <select 
+                          className="filter-select" 
+                          value={newOfficerShift} 
+                          onChange={e => setNewOfficerShift(e.target.value)}
+                          style={{ padding: '6px 10px', fontSize: '11.5px' }}
+                        >
+                          <option value="Day Shift (08:00 - 16:00)">Day Shift (08:00 - 16:00)</option>
+                          <option value="Night Shift (16:00 - 00:00)">Night Shift (16:00 - 00:00)</option>
+                          <option value="24/7 Unlimited">24/7 Unlimited</option>
+                        </select>
+                      </div>
+
+                      <div className="filter-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '4px' }}>PERMISSIONS GRANTED</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                          {['CCTV Access', 'Verify PG', 'Watchlist Access', 'Approve PG', 'Patrol Dispatch'].map(perm => (
+                            <label key={perm} style={{ fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={newOfficerPermissions.includes(perm)}
+                                onChange={e => {
+                                  if (e.target.checked) {
+                                    setNewOfficerPermissions([...newOfficerPermissions, perm]);
+                                  } else {
+                                    setNewOfficerPermissions(newOfficerPermissions.filter(p => p !== perm));
+                                  }
+                                }}
+                              />
+                              {perm}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button 
+                        className="btn-action-large primary" 
+                        onClick={() => {
+                          if (!newOfficerName) { openAlert("Validation Error", "Please fill in the officer's name."); return; }
+                          const nextId = officers.length > 0 ? Math.max(...officers.map(o => o.id)) + 1 : 1;
+                          setOfficers([...officers, {
+                            id: nextId,
+                            name: newOfficerName,
+                            rank: newOfficerRank,
+                            district: newOfficerDistrict,
+                            permissions: newOfficerPermissions,
+                            shift: newOfficerShift
+                          }]);
+                          setNewOfficerName('');
+                          setNewOfficerPermissions(['CCTV Access']);
+                          openAlert("ABAC Rule Saved", `Access policy for ${newOfficerName} successfully compiled and distributed.`);
+                        }}
+                        style={{ height: '30px', fontSize: '11px', marginTop: '4px', width: '100%' }}
+                      >
+                        Authorize & Bind Officer
+                      </button>
+                    </div>
+
+                  </div>
+
+                  {/* ABAC Simulator Module */}
+                  <div style={{ marginTop: '10px', padding: '14px', backgroundColor: 'rgba(200, 241, 53, 0.02)', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+                    <h5 style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Access Request Validator (ABAC Simulation)</h5>
+                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>Verify if an officer satisfies all attribute requirements (Rank clearance, Regional jurisdiction check, Permission list bind) to perform dashboard actions.</p>
+                    
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', marginTop: '10px' }} className="sector-analysis-grid">
+                      <div className="filter-group" style={{ margin: 0, flex: 1 }}>
+                        <label style={{ fontSize: '9px', fontWeight: 'bold' }}>SELECT OFFICER PROFILE</label>
+                        <select 
+                          className="filter-select" 
+                          value={simOfficerId} 
+                          onChange={e => { setSimOfficerId(parseInt(e.target.value)); setSimResult(null); }}
+                          style={{ padding: '6px 10px', fontSize: '11.5px' }}
+                        >
+                          {officers.map(o => (
+                            <option key={o.id} value={o.id}>{o.name} ({o.rank} - {o.district})</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="filter-group" style={{ margin: 0, flex: 1 }}>
+                        <label style={{ fontSize: '9px', fontWeight: 'bold' }}>ACTION RESOURCE TO ATTEMPT</label>
+                        <select 
+                          className="filter-select" 
+                          value={simResource} 
+                          onChange={e => { setSimResource(e.target.value); setSimResult(null); }}
+                          style={{ padding: '6px 10px', fontSize: '11.5px' }}
+                        >
+                          <option value="Approve PG">Approve New PG Registration</option>
+                          <option value="CCTV Access">Stream Real-time CCTV Channels</option>
+                          <option value="Watchlist Access">Query Aadhaar Suspects Watchlist</option>
+                          <option value="Verify PG">Request Ground Patrol Verification</option>
+                          <option value="Patrol Dispatch">Dispatch Emergency Patrol Squad</option>
+                        </select>
+                      </div>
+
+                      <button 
+                        className="btn-action-large warning" 
+                        onClick={() => {
+                          const off = officers.find(o => o.id === simOfficerId);
+                          if (!off) return;
+                          
+                          const hasPermission = off.permissions.includes(simResource);
+                          let allowed = hasPermission;
+                          let msg = "";
+                          if (allowed) {
+                            msg = `ACCESS GRANTED: ${off.name} clearance rank of ${off.rank} matches the resource policy for [${simResource}].`;
+                          } else {
+                            msg = `ACCESS DENIED: Required security bind of [${simResource}] is missing from ${off.name}'s active credentials profile.`;
+                          }
+
+                          setSimResult({ allowed, message: msg });
+                        }}
+                        style={{ height: '32px', fontSize: '11.5px', padding: '0 16px', width: 'auto' }}
+                      >
+                        Evaluate ABAC Policy
+                      </button>
+                    </div>
+
+                    {simResult && (
+                      <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '6px', border: `1px solid ${simResult.allowed ? 'var(--success)' : 'var(--danger)'}`, backgroundColor: simResult.allowed ? 'var(--success-subtle)' : 'var(--danger-subtle)', fontSize: '11px', color: simResult.allowed ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>
+                        {simResult.message}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
               </motion.div>
             )}
 
           </div>
 
           {/* ─── RIGHT RAIL (LIVE INTEL STREAM) ─── */}
-          {(currentTab !== 'livemap' && currentTab !== 'search' && currentTab !== 'pg-applications') && (
+          {(currentTab !== 'livemap' && currentTab !== 'search' && currentTab !== 'pg-applications' && currentTab !== 'cctv') && (
             <aside className="right-rail">
               <section className="panel-alert-stream">
                 <div className="alert-stream-header">

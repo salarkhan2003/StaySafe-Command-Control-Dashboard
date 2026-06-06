@@ -16,16 +16,17 @@ This is the official React + TypeScript dashboard designed for the **Andhra Prad
 *   **Live Occupant Manifest**:
     *   A real-time search table of checked-in occupants with details on check-in timestamps, rooms, nationality, and phone numbers.
     *   Includes a slide-out drawer presenting scanned government IDs (Aadhar, PAN, Passports), photos, and verification actions.
-*   **Watchlist Threat Matrix**:
-    *   Screens credentials against active warrants and Interpol databases.
-    *   Allows immediate dispatch escalation to special branch units or profile clearing.
-*   **Emergency SOS Panel**:
-    *   Monitors panic alarms, including silent panic triggers.
-    *   Displays responding patrol unit coordinates, assigned officers, and case resolution logs.
-*   **Safety Compliance Console**:
-    *   Provides remote audit controls to test CCTV status, fire license validity, and guard certifications.
-*   **Analytics Hub**:
-    *   Presents visual graphics utilizing SVG elements, including district occupancy columns, property distribution donut charts, and safety rating line trends.
+*   **Dedicated CCTV Feeds Control Center**:
+    *   Unified dashboard hosting real-time video stream telemetry directly from PG accommodations.
+    *   Resolution selectors (720p, 1080p, 4K Command Center Priority) and bandwidth/IP/latency diagnostics.
+    *   AI Facial Auditing Simulator checking visitor biometric templates against Aadhaar blacklist indices.
+*   **Command Center Audits & Reports Registry**:
+    *   High-level KPI tiles tracking Audits Conducted, Pending Patrol Checks, Mean Compliance, and SOS Dispatch SLA.
+    *   District occupancy comparisons and compliance distribution gauges.
+    *   Safety Violations Log tracking real-time telemetry warnings with one-click Ground Dispatch routing.
+*   **Attribute-Based Access Control (ABAC)**:
+    *   Interactive policy manager restricting dashboard actions based on Clearance Rank (DCP, Inspector, Sub-Inspector), Regional Jurisdiction, and temporal shift constraints.
+    *   ABAC Rule Simulator to evaluate mock access requests against policy attributes.
 
 ---
 
