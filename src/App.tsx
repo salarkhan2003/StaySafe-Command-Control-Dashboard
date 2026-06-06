@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Shield, 
   Building, 
@@ -16,24 +17,89 @@ import {
   Lock,
   Eye,
   Check,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Settings,
+  Bell,
+  Globe,
+  Clock,
+  Send,
+  RefreshCw,
+  HelpCircle
 } from 'lucide-react';
-import { INITIAL_MOCK_DATA, Incident } from './data';
+import { INITIAL_MOCK_DATA, Incident, CheckIn } from './data';
 
 export default function App() {
   // --- STATE ---
   const [data, setData] = useState(INITIAL_MOCK_DATA);
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'properties' | 'guests' | 'threats' | 'sos' | 'compliance' | 'analytics'>('dashboard');
+  const [currentTab, setCurrentTab] = useState<string>('overview');
   const [selectedDistrictId, setSelectedDistrictId] = useState<string | null>(null);
   const [mapMode, setMapMode] = useState<'occupancy' | 'alerts'>('occupancy');
   const [searchQuery, setSearchQuery] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [selectedItem, setSelectedItem] = useState<{ type: 'guest' | 'property'; item: any } | null>(null);
-  const [activeTableTab, setActiveTableTab] = useState<'checkins' | 'properties' | 'audit'>('checkins');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandSearch, setCommandSearch] = useState('');
+  
+  // Custom Filter State for Search Console
+  const [filterStatus, setFilterStatus] = useState<string>('All');
+  const [filterNationality, setFilterNationality] = useState<string>('All');
+  const [filterAge, setFilterAge] = useState<number>(65);
 
-  // Map reference
+  // PG Verification Sub-Tabs
+  const [verificationSubTab, setVerificationSubTab] = useState<'pending' | 'verified' | 'approved' | 'declined'>('pending');
+
+  // Interactive Settings states
+  const [biometricEnabled, setBiometricEnabled] = useState(true);
+  const [autoDispatchEnabled, setAutoDispatchEnabled] = useState(false);
+  const [dispatchRadius, setDispatchRadius] = useState(5);
+  const [syncInterval, setSyncInterval] = useState('30s');
+  const [whatsappAlerts, setWhatsappAlerts] = useState(true);
+  const [facialRecognition, setFacialRecognition] = useState(true);
+  const [stationCode, setStationCode] = useState('AP-NTR-VJA-01');
+  const [apiKey, setApiKey] = useState('sk_live_safestay_police_8827c1a82f3');
+
+  // Map references
   const mapRef = useRef<any>(null);
   const markersLayerRef = useRef<any>(null);
+  const commandInputRef = useRef<HTMLInputElement>(null);
+
+  // --- CUSTOM DIALOGS & ZONE PG SELECTION ---
+  const [customDialog, setCustomDialog] = useState<{
+    type: 'alert' | 'prompt';
+    title: string;
+    message?: string;
+    defaultValue?: string;
+    placeholder?: string;
+    onConfirm: (val: string) => void;
+  } | null>(null);
+  const [dialogInput, setDialogInput] = useState('');
+  const [activeZonePropertyId, setActiveZonePropertyId] = useState<string | null>(null);
+
+  const openPrompt = (title: string, defaultValue: string, onConfirm: (val: string) => void) => {
+    setDialogInput(defaultValue);
+    setCustomDialog({
+      type: 'prompt',
+      title: title,
+      defaultValue: defaultValue,
+      onConfirm: onConfirm
+    });
+  };
+
+  const openAlert = (title: string, message?: string) => {
+    setCustomDialog({
+      type: 'alert',
+      title: title,
+      message: message,
+      onConfirm: () => {}
+    });
+  };
+
+  useEffect(() => {
+    setActiveZonePropertyId(null);
+  }, [selectedDistrictId]);
 
   // --- DISTRICT COORDINATES ---
   const DISTRICT_COORDS: Record<string, { lat: number; lng: number; name: string }> = {
@@ -50,68 +116,46 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // --- INITIALIZE MAP (Only once on dashboard tab) ---
+  // --- GLOBAL SHORTCUT FOR COMMAND PALETTE ---
   useEffect(() => {
-    if (currentTab !== 'dashboard') {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
       }
-      return;
-    }
-
-    const L = (window as any).L;
-    if (!L) return;
-
-    // Center map on Andhra Pradesh
-    const map = L.map('leafletMap', {
-      center: [15.9129, 79.7400],
-      zoom: 7,
-      zoomControl: true,
-      attributionControl: false
-    });
-
-    const tileUrl = theme === 'dark' 
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-      
-    L.tileLayer(tileUrl, { maxZoom: 19 }).addTo(map);
-    const markersLayer = L.layerGroup().addTo(map);
-
-    mapRef.current = map;
-    markersLayerRef.current = markersLayer;
-
-    // Cleanup
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
+      if (e.key === 'Escape') {
+        setShowCommandPalette(false);
       }
     };
-  }, [currentTab, theme]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
-  // --- RENDER MAP MARKERS ---
+  // Focus Command Palette input
   useEffect(() => {
-    if (currentTab !== 'dashboard' || !mapRef.current || !markersLayerRef.current) return;
-    const L = (window as any).L;
-    if (!L) return;
+    if (showCommandPalette && commandInputRef.current) {
+      setTimeout(() => {
+        commandInputRef.current?.focus();
+      }, 50);
+    }
+  }, [showCommandPalette]);
 
-    const markersLayer = markersLayerRef.current;
+  // Render Map Markers Helper
+  const renderMarkers = (L: any, map: any, markersLayer: any) => {
     markersLayer.clearLayers();
-
     data.districts.forEach(district => {
       const coords = DISTRICT_COORDS[district.id];
       if (!coords) return;
 
       const isSelected = selectedDistrictId === district.id;
-      let color = '#4f6ef7'; // Accent Blue
+      let color = '#3b82f6'; // iOS Blue
       
       if (district.activeSos > 0) {
-        color = '#ef4444'; // Red alarm
+        color = '#ff3b30'; // iOS Red alarm
       } else if (district.watchlistMatches > 0) {
-        color = '#f59e0b'; // Warning Orange
+        color = '#ff9500'; // iOS Warning Orange
       } else if (mapMode === 'occupancy') {
-        color = district.occupancy > 75 ? '#ef4444' : (district.occupancy > 55 ? '#f59e0b' : '#10b981');
+        color = district.occupancy > 75 ? '#ff3b30' : (district.occupancy > 55 ? '#ff9500' : '#34c759');
       }
 
       let radiusValue = 20000;
@@ -130,8 +174,8 @@ export default function App() {
       });
 
       const popupHtml = `
-        <div style="font-family: 'Outfit', sans-serif; color: #0f172a; padding: 4px; min-width: 160px;">
-          <h4 style="margin: 0 0 6px 0; font-size: 13px; font-weight: 700; color: ${color};">${district.name}</h4>
+        <div style="font-family: -apple-system, sans-serif; color: #000; padding: 6px; min-width: 170px;">
+          <h4 style="margin: 0 0 6px 0; font-size: 13px; font-weight: 800; color: ${color};">${district.name}</h4>
           <div style="font-size: 11px; margin-bottom: 3px;"><strong>Occupancy:</strong> ${district.occupancy}%</div>
           <div style="font-size: 11px; margin-bottom: 3px;"><strong>Verified Places:</strong> ${district.PGs + district.hotels}</div>
           <div style="font-size: 11px; margin-bottom: 3px;"><strong>Active SOS:</strong> ${district.activeSos} Alarms</div>
@@ -141,18 +185,83 @@ export default function App() {
       circle.bindTooltip(popupHtml, { permanent: false, direction: 'top' });
 
       circle.on('click', () => {
-        if (selectedDistrictId === district.id) {
-          setSelectedDistrictId(null);
-          mapRef.current.setView([15.9129, 79.7400], 7);
-        } else {
-          setSelectedDistrictId(district.id);
-          mapRef.current.setView([coords.lat, coords.lng], 9);
-        }
+        setSelectedDistrictId(prev => prev === district.id ? null : district.id);
+        map.setView([coords.lat, coords.lng], 9);
       });
 
       markersLayer.addLayer(circle);
     });
-  }, [currentTab, data, selectedDistrictId, mapMode]);
+  };
+
+  // --- INITIALIZE MAP (Overview or Live Map tabs) ---
+  useEffect(() => {
+    if (currentTab !== 'overview' && currentTab !== 'livemap') {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      return;
+    }
+
+    const L = (window as any).L;
+    if (!L) return;
+
+    const containerId = currentTab === 'overview' ? 'leafletMap' : 'leafletMapFull';
+    
+    const timer = setTimeout(() => {
+      const containerEl = document.getElementById(containerId);
+      if (!containerEl) return;
+
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+
+      const map = L.map(containerId, {
+        center: [15.9129, 79.7400],
+        zoom: currentTab === 'overview' ? 7 : 8,
+        zoomControl: true,
+        attributionControl: false
+      });
+
+      const tileUrl = theme === 'dark' 
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+        
+      L.tileLayer(tileUrl, { maxZoom: 19 }).addTo(map);
+      const markersLayer = L.layerGroup().addTo(map);
+
+      mapRef.current = map;
+      markersLayerRef.current = markersLayer;
+
+      renderMarkers(L, map, markersLayer);
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [currentTab, theme]);
+
+  // Update Map Markers on state changes
+  useEffect(() => {
+    const L = (window as any).L;
+    if (mapRef.current && markersLayerRef.current && L) {
+      renderMarkers(L, mapRef.current, markersLayerRef.current);
+    }
+  }, [data, selectedDistrictId, mapMode]);
+
+  // Invalidate size on sidebar toggle
+  useEffect(() => {
+    if (mapRef.current) {
+      setTimeout(() => {
+        mapRef.current.invalidateSize();
+      }, 350);
+    }
+  }, [sidebarCollapsed]);
 
   // --- ACTIONS CONTROLLERS ---
   const handleVerifyGuest = (id: string) => {
@@ -164,8 +273,7 @@ export default function App() {
         return c;
       });
 
-      // Recalculate district match counts
-      const matched = updatedCheckins.find(c => c.id === id);
+      const matched = prev.liveCheckins.find(c => c.id === id);
       const updatedDistricts = prev.districts.map(d => {
         if (matched && matched.propertyName.includes(d.name.replace(' Urban', '').replace(' City', '').replace(' District', ''))) {
           return { ...d, watchlistMatches: Math.max(0, d.watchlistMatches - 1) };
@@ -226,11 +334,11 @@ export default function App() {
   const handleVerifyProperty = (id: string) => {
     setData(prev => ({
       ...prev,
-      properties: prev.properties.map(p => p.id === id ? { ...p, status: 'verified' as const, complianceScore: Math.max(90, p.complianceScore) } : p)
+      properties: prev.properties.map(p => p.id === id ? { ...p, status: 'verified' as const, verificationStatus: 'approved' as const, complianceScore: Math.max(90, p.complianceScore) } : p)
     }));
 
     if (selectedItem?.type === 'property' && selectedItem.item.id === id) {
-      setSelectedItem(prev => prev ? { ...prev, item: { ...prev.item, status: 'verified', complianceScore: 95 } } : null);
+      setSelectedItem(prev => prev ? { ...prev, item: { ...prev.item, status: 'verified', verificationStatus: 'approved', complianceScore: 95 } } : null);
     }
   };
 
@@ -248,12 +356,73 @@ export default function App() {
   const handleSuspendProperty = (id: string) => {
     setData(prev => ({
       ...prev,
-      properties: prev.properties.map(p => p.id === id ? { ...p, status: 'suspended' as const } : p)
+      properties: prev.properties.map(p => p.id === id ? { ...p, status: 'suspended' as const, verificationStatus: 'declined' as const } : p)
     }));
 
     if (selectedItem?.type === 'property' && selectedItem.item.id === id) {
-      setSelectedItem(prev => prev ? { ...prev, item: { ...prev.item, status: 'suspended' } } : null);
+      setSelectedItem(prev => prev ? { ...prev, item: { ...prev.item, status: 'suspended', verificationStatus: 'declined' } } : null);
     }
+  };
+
+  // --- NEW PG APPLICATIONS ACTIONS ---
+  const handleSendPatrolVerification = (id: string) => {
+    openPrompt("Assign Verification Patrol Officer:", "SI Ramesh Kumar", (officerName) => {
+      if (!officerName) return;
+      
+      setData(prev => ({
+        ...prev,
+        properties: prev.properties.map(p => {
+          if (p.id === id) {
+            return {
+              ...p,
+              verificationStatus: 'police_verified' as const,
+              verificationOfficer: officerName,
+              policeReportComments: `Physical verification completed. Safety logs checked, CCTV active. Advise approval.`
+            };
+          }
+          return p;
+        })
+      }));
+
+      openAlert("Verification Patrol Assigned", `Patrol officer ${officerName} has completed physical inspection and uploaded reports.`);
+    });
+  };
+
+  const handleRequestMoreDocs = (id: string) => {
+    openPrompt("Enter specific missing documents description:", "Fire NOC & Land registry copy", (reason) => {
+      if (!reason) return;
+
+      setData(prev => ({
+        ...prev,
+        properties: prev.properties.map(p => {
+          if (p.id === id) {
+            return {
+              ...p,
+              verificationStatus: 'docs_required' as const,
+              policeReportComments: `Application paused. Missing: ${reason}`
+            };
+          }
+          return p;
+        })
+      }));
+    });
+  };
+
+  const handleReuploadRequiredDocs = (id: string) => {
+    setData(prev => ({
+      ...prev,
+      properties: prev.properties.map(p => {
+        if (p.id === id) {
+          return {
+            ...p,
+            verificationStatus: 'submitted_physical' as const,
+            policeReportComments: `Documents re-uploaded. Physical verification queued.`
+          };
+        }
+        return p;
+      })
+    }));
+    openAlert("Documents Uploaded", "Owner notified. Simulated document re-upload triggered.");
   };
 
   const handleForceAudit = (id: string) => {
@@ -266,7 +435,7 @@ export default function App() {
         cctvWorking: true 
       } : p)
     }));
-    alert("Triggered automated live camera audit check. CCTV connection restablished. Safety score updated.");
+    openAlert("Live Video Audit Complete", "CCTV camera connection has been successfully verified.");
   };
 
   const handleResolveIncident = (id: string) => {
@@ -281,7 +450,6 @@ export default function App() {
         return inc;
       });
 
-      // If resolving SOS incident, decrease active SOS counter for district
       let updatedDistricts = prev.districts;
       if (isSos && incident) {
         updatedDistricts = prev.districts.map(d => {
@@ -302,16 +470,104 @@ export default function App() {
   };
 
   const handleReassignOfficer = (id: string) => {
-    const newOfficer = prompt("Enter Inspector Name/ID to dispatch:");
-    if (!newOfficer) return;
+    openPrompt("Enter Patrol Officer Name:", "SI Prasad", (newOfficer) => {
+      if (!newOfficer) return;
+
+      setData(prev => ({
+        ...prev,
+        incidents: prev.incidents.map(inc => inc.id === id ? { ...inc, assignedOfficer: newOfficer } : inc)
+      }));
+    });
+  };
+
+  // --- SETTINGS MOCK TRIGGERS ---
+  const handleTriggerMockAlarm = () => {
+    const randomProp = data.properties[Math.floor(Math.random() * data.properties.length)];
+    const newAlert = {
+      id: `ALT-${Math.floor(100 + Math.random() * 900)}`,
+      type: 'sos' as const,
+      message: `Active SOS Panic Alarm triggered at ${randomProp.name}`,
+      time: 'Just now',
+      severity: 'critical' as const,
+      propertyId: randomProp.id
+    };
+
+    const newIncident: Incident = {
+      id: `INC-SOS-${Math.floor(100 + Math.random() * 900)}`,
+      propertyName: randomProp.name,
+      district: randomProp.district,
+      type: 'SOS Panic Button',
+      reportedAt: new Date().toISOString(),
+      assignedOfficer: 'Emergency Response Squad (AP-PATROL)',
+      status: 'Dispatch Active',
+      details: 'SOS Alarm triggered from mobile client app. Patrol squad dispatched to coordinates.'
+    };
 
     setData(prev => ({
       ...prev,
-      incidents: prev.incidents.map(inc => inc.id === id ? { ...inc, assignedOfficer: newOfficer } : inc)
+      alerts: [newAlert, ...prev.alerts],
+      incidents: [newIncident, ...prev.incidents],
+      districts: prev.districts.map(d => d.name === randomProp.district ? { ...d, activeSos: d.activeSos + 1 } : d)
     }));
+    openAlert("Mock SOS Triggered", `Mock SOS Alarm generated successfully for ${randomProp.name}!`);
   };
 
-  // --- FILTERS & SEARCH RUNNERS ---
+  const handleInjectMockGuest = () => {
+    const randomProp = data.properties[Math.floor(Math.random() * data.properties.length)];
+    const mockId = `CHK-MOCK-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newGuest: CheckIn = {
+      id: mockId,
+      guestName: 'Simulated Occupant',
+      age: 28,
+      phone: '+91 90000 88273',
+      idType: 'Aadhar Card',
+      idNumber: '8837 9923 1182',
+      idImage: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&q=80',
+      nationality: 'Indian',
+      checkinTime: new Date().toISOString(),
+      checkoutTime: new Date(Date.now() + 86400000 * 4).toISOString(),
+      propertyName: randomProp.name,
+      roomNumber: '302',
+      watchlistMatch: false,
+      watchlistReason: '',
+      photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&q=80',
+      status: 'Cleared',
+      gender: 'Male',
+      guestCount: 2
+    };
+
+    setData(prev => ({
+      ...prev,
+      liveCheckins: [newGuest, ...prev.liveCheckins]
+    }));
+    openAlert("Mock Guest Injected", `Mock guest injected at ${randomProp.name}!`);
+  };
+
+  const handleResetData = () => {
+    setData(INITIAL_MOCK_DATA);
+    openAlert("Database Reset Complete", "Simulated command center databases reset successfully.");
+  };
+
+  // --- ROBUST SEARCH FILTER MATCHING ANY KEYWORD ---
+  const searchFilter = (item: any) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase().trim();
+    
+    return (
+      item.guestName?.toLowerCase().includes(query) ||
+      item.idNumber?.toLowerCase().includes(query) ||
+      item.propertyName?.toLowerCase().includes(query) ||
+      item.nationality?.toLowerCase().includes(query) ||
+      item.phone?.toLowerCase().includes(query) ||
+      item.status?.toLowerCase().includes(query) ||
+      item.roomNumber?.toString().toLowerCase().includes(query) ||
+      item.idType?.toLowerCase().includes(query) ||
+      item.age?.toString().includes(query) ||
+      (item.watchlistReason && item.watchlistReason.toLowerCase().includes(query))
+    );
+  };
+
+  // District name logic
   const activeDistrictName = selectedDistrictId 
     ? data.districts.find(d => d.id === selectedDistrictId)?.name 
     : null;
@@ -326,923 +582,1660 @@ export default function App() {
     return cleanItem.includes(cleanActive) || cleanActive.includes(cleanItem);
   };
 
-  const searchFilter = (fields: string[]) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return fields.some(f => f?.toLowerCase().includes(query));
-  };
-
-  // Live Alerts Count
   const activeSosCount = data.incidents.filter(i => i.status === 'Dispatch Active').length;
+  const watchlistHitsCount = data.liveCheckins.filter(c => c.watchlistMatch).length;
+
+  const filteredCommandResults = commandSearch
+    ? data.liveCheckins.filter(c => c.guestName.toLowerCase().includes(commandSearch.toLowerCase()))
+    : [];
+
+  // --- SIDEBAR MENU TABS DEFINITION ---
+  const sidebarTabs = [
+    { id: 'overview', label: 'Overview', icon: Activity },
+    { id: 'registry', label: 'Registry', icon: FileText },
+    { id: 'pg-applications', label: 'PG Applications', icon: Clock }, // New Workflow Tab
+    { id: 'livemap', label: 'Live Map', icon: Globe },
+    { id: 'search', label: 'Search', icon: Search },
+    { id: 'alerts', label: 'Alerts', icon: Bell },
+    { id: 'watchlist', label: 'Watchlist', icon: Lock },
+    { id: 'bookings', label: 'Bookings', icon: Building },
+    { id: 'occupancy', label: 'Occupancy', icon: TrendingUp },
+    { id: 'verifications', label: 'Verifications', icon: Check },
+    { id: 'audits', label: 'Audits', icon: Sliders },
+    { id: 'incidents', label: 'Incidents', icon: AlertTriangle },
+    { id: 'compliance', label: 'Compliance', icon: Shield },
+    { id: 'reports', label: 'Reports', icon: TrendingUp },
+    { id: 'users', label: 'Users', icon: Users },
+    { id: 'settings', label: 'Settings', icon: Settings }
+  ];
 
   return (
     <div className="app-container">
       
       {/* ─── SIDEBAR NAVIGATION ─── */}
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="sidebar-logo">
-            <Shield size={20} strokeWidth={2.5} />
-          </div>
-          <div className="sidebar-brand-text">
-            <h2>SafeStay AP</h2>
-            <p>Police Intelligence</p>
-          </div>
-        </div>
-
+      <motion.aside 
+        className="sidebar"
+        animate={{ width: sidebarCollapsed ? 64 : 220 }}
+        transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+      >
         <div>
-          <div className="menu-group">
-            <div className="menu-title">Operations</div>
-            <div 
-              className={`menu-item ${currentTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('dashboard'); setSelectedItem(null); }}
-            >
-              <Activity size={18} />
-              <span>Command Center</span>
+          <div className="sidebar-header">
+            <div className="sidebar-brand">
+              <div className="sidebar-logo">
+                <Shield size={16} strokeWidth={2.5} />
+              </div>
+              {!sidebarCollapsed && (
+                <div className="sidebar-brand-text">
+                  <h2>SafeStay AP</h2>
+                  <p>Command Staff</p>
+                </div>
+              )}
             </div>
-            <div 
-              className={`menu-item ${currentTab === 'properties' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('properties'); setSelectedItem(null); }}
+            <button 
+              className="sidebar-collapse-btn" 
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             >
-              <Building size={18} />
-              <span>PGs & Hotels</span>
-            </div>
-            <div 
-              className={`menu-item ${currentTab === 'guests' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('guests'); setSelectedItem(null); }}
-            >
-              <Users size={18} />
-              <span>Live Occupants</span>
-            </div>
+              {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            </button>
           </div>
 
           <div className="menu-group">
-            <div className="menu-title">Threat Matrix</div>
-            <div 
-              className={`menu-item ${currentTab === 'threats' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('threats'); setSelectedItem(null); }}
-            >
-              <AlertTriangle size={18} />
-              <span>Watchlist Hits</span>
-            </div>
-            <div 
-              className={`menu-item ${currentTab === 'sos' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('sos'); setSelectedItem(null); }}
-            >
-              <FileText size={18} />
-              <span>SOS Alarms Center</span>
-            </div>
-            <div 
-              className={`menu-item ${currentTab === 'compliance' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('compliance'); setSelectedItem(null); }}
-            >
-              <Sliders size={18} />
-              <span>Compliance Audits</span>
-            </div>
-          </div>
-
-          <div className="menu-group">
-            <div className="menu-title">Analytics</div>
-            <div 
-              className={`menu-item ${currentTab === 'analytics' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('analytics'); setSelectedItem(null); }}
-            >
-              <TrendingUp size={18} />
-              <span>Analytics Hub</span>
-            </div>
+            {!sidebarCollapsed && <div className="menu-title">Main Portal Options</div>}
+            {sidebarTabs.map(tab => {
+              const TabIcon = tab.icon;
+              return (
+                <div 
+                  key={tab.id}
+                  className={`menu-item ${currentTab === tab.id ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab(tab.id); setSelectedItem(null); }}
+                  style={{ position: 'relative' }}
+                >
+                  {currentTab === tab.id && (
+                    <motion.div layoutId="sidebar-active" className="sidebar-active-pill" />
+                  )}
+                  <TabIcon size={16} style={{ zIndex: 1, color: currentTab === tab.id ? '#000' : 'inherit' }} />
+                  {!sidebarCollapsed && <span style={{ zIndex: 1 }}>{tab.label}</span>}
+                </div>
+              );
+            })}
           </div>
         </div>
 
         <div className="sidebar-footer">
           <div className="user-profile">
             <img 
-              src="https://images.unsplash.com/photo-1607990283143-e81e7a2c93ab?w=80&q=80" 
-              alt="Officer Avatar" 
+              src="/SAFE_STAY_APP_LOGO.jpeg" 
+              alt="AP Police Commissioner Logo" 
               className="user-avatar" 
+              style={{ objectFit: 'contain', backgroundColor: 'var(--border-color)', padding: '2px' }}
             />
-            <div className="user-info">
-              <h4>AP Police</h4>
-              <p>State Intel</p>
-            </div>
+            {!sidebarCollapsed && (
+              <div className="user-info">
+                <h4>AP Police Commissioner</h4>
+                <p>Command Staff</p>
+              </div>
+            )}
           </div>
+          
           <div 
             className="theme-switch" 
             onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
             title="Toggle Visual Theme"
           >
             <div className="theme-switch-thumb">
-              {theme === 'dark' ? <Moon size={12} /> : <Sun size={12} />}
+              {theme === 'dark' ? <Moon size={11} /> : <Sun size={11} />}
             </div>
           </div>
         </div>
-      </aside>
+      </motion.aside>
 
       {/* ─── MAIN WORKSPACE ─── */}
       <main className="main-workspace">
         
-        {/* HEADER */}
+        {/* Top Header */}
         <header className="top-nav">
-          <div className="dashboard-title">
-            <h1>
-              {currentTab === 'dashboard' && 'Command Center Dashboard'}
-              {currentTab === 'properties' && 'Properties Registry'}
-              {currentTab === 'guests' && 'Live Occupant manifest'}
-              {currentTab === 'threats' && 'Watchlist Screening Hits'}
-              {currentTab === 'sos' && 'SOS & Silent Alarm Center'}
-              {currentTab === 'compliance' && 'Safety & CCTV Audit Console'}
-              {currentTab === 'analytics' && 'Hospitality Intelligence Analytics'}
-            </h1>
-            <p>
-              {currentTab === 'dashboard' && 'Real-time district hospitality intelligence & safety monitoring'}
-              {currentTab === 'properties' && 'Audit status and safety registries of paying guest hostels and hotels'}
-              {currentTab === 'guests' && 'Active database list of checked-in occupants and KYC verification states'}
-              {currentTab === 'threats' && 'Matches flagged by Automated AP Police Criminal Database Checks'}
-              {currentTab === 'sos' && 'Active location dispatches, alarm reports, and response tracking'}
-              {currentTab === 'compliance' && 'Manage CCTV connectivity, fire safety permits, and license scores'}
-              {currentTab === 'analytics' && 'Visualizations of safety score trends, district densities, and alerts'}
-            </p>
+          <div className="header-command-palette-trigger" onClick={() => setShowCommandPalette(true)}>
+            <Search size={14} />
+            <span>Search records or press <kbd>Ctrl+K</kbd></span>
           </div>
 
-          <div className="header-controls">
-            <div className="control-search">
-              <Search size={16} />
-              <input 
-                type="text" 
-                placeholder="Search database..." 
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
+          <div className="header-right-group">
+            <div className="date-range-selector">
+              <span className="date-indicator-dot"></span>
+              <span>June 6, 2026 - Live Feed</span>
             </div>
 
+            <button className="header-bell-btn" onClick={() => setCurrentTab('alerts')}>
+              <Bell size={16} />
+            </button>
+            
             {activeSosCount > 0 && (
-              <button className="btn-pulse" onClick={() => setCurrentTab('sos')}>
-                <span className="pulse-dot"></span>
-                <span>{activeSosCount} ACTIVE SOS DISPATCHES</span>
+              <button className="btn-pulse" style={{ backgroundColor: 'var(--danger-subtle)', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setCurrentTab('incidents')}>
+                <span className="pulse-dot" style={{ width: '6px', height: '6px', backgroundColor: 'var(--danger)', borderRadius: '50%' }}></span>
+                <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{activeSosCount} ACTIVE ALARMS</span>
               </button>
             )}
           </div>
         </header>
 
-        {/* WORKSPACE CONTENTS */}
-        <div className="dashboard-content">
+        {/* WORKSPACE CONTENT SCREEN */}
+        <div className="dashboard-content" style={{ gridTemplateColumns: (currentTab === 'livemap' || currentTab === 'search' || currentTab === 'pg-applications') ? '1fr' : '1fr 310px' }}>
           
-          {/* TAB 1: COMMAND CENTER (MAIN DASHBOARD) */}
-          {currentTab === 'dashboard' && (
-            <div className="dashboard-center">
-              
-              {/* KPIs */}
-              <div className="kpi-row">
-                <div className="kpi-card primary">
-                  <div className="kpi-header">
-                    <span>Verified Properties</span>
-                    <div className="kpi-icon"><Building size={16} /></div>
-                  </div>
-                  <div className="kpi-value">{data.properties.length + 672}</div>
-                  <div className="kpi-trend up">
-                    <TrendingUp size={12} />
-                    <span>+18 audited this week</span>
-                  </div>
-                </div>
-
-                <div className="kpi-card success">
-                  <div className="kpi-header">
-                    <span>Active Occupants</span>
-                    <div className="kpi-icon"><Users size={16} /></div>
-                  </div>
-                  <div className="kpi-value">{data.liveCheckins.length + 8970}</div>
-                  <div className="kpi-trend up">
-                    <TrendingUp size={12} />
-                    <span>+242 checked-in today</span>
-                  </div>
-                </div>
-
-                <div className="kpi-card danger">
-                  <div className="kpi-header">
-                    <span>Active Threat Matches</span>
-                    <div className="kpi-icon"><AlertTriangle size={16} /></div>
-                  </div>
-                  <div className="kpi-value">{data.liveCheckins.filter(c => c.watchlistMatch).length}</div>
-                  <div className="kpi-trend down">
-                    <AlertCircle size={12} />
-                    <span>Watchlist alerts pending review</span>
-                  </div>
-                </div>
+          <div className="dashboard-center">
+            
+            {/* Sector / District Filter Notification Bar */}
+            {selectedDistrictId && currentTab !== 'overview' && (
+              <div style={{ backgroundColor: 'var(--primary-subtle)', border: '1px solid var(--primary)', padding: '8px 14px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', marginBottom: '14px' }}>
+                <span>Surveillance localized to district: <strong>{activeDistrictName}</strong> (showing matches only).</span>
+                <button 
+                  onClick={() => setSelectedDistrictId(null)}
+                  style={{ background: 'var(--primary)', color: '#000', border: 'none', padding: '3px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}
+                >
+                  Clear Sector Filter (Show All 20+ PGs)
+                </button>
               </div>
+            )}
 
-              {/* MAP MATRIX */}
-              <div className="mission-control-panel">
-                <div className="panel-header">
-                  <h3>Geospatial District Intelligence</h3>
-                  <div className="panel-controls">
-                    <button 
-                      className={`filter-chip ${mapMode === 'occupancy' ? 'active' : ''}`}
-                      onClick={() => setMapMode('occupancy')}
-                    >
-                      Occupancy Density
-                    </button>
-                    <button 
-                      className={`filter-chip ${mapMode === 'alerts' ? 'active' : ''}`}
-                      onClick={() => setMapMode('alerts')}
-                    >
-                      Threat Heatmap
-                    </button>
-                  </div>
+            {/* 1. OVERVIEW SCREEN */}
+            {currentTab === 'overview' && (
+              <>
+                {/* KPIs Row */}
+                <div className="kpi-row">
+                  <motion.div 
+                    className="glass-card kpi-card"
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.05 }}
+                  >
+                    <div className="kpi-header">
+                      <span>Verified Properties</span>
+                      <Building size={14} />
+                    </div>
+                    <div className="kpi-value tabular-nums">{data.properties.length} PGs & Hotels</div>
+                    <div className="kpi-trend up">
+                      <span>+100% database match</span>
+                    </div>
+                  </motion.div>
+
+                  <motion.div 
+                    className="glass-card kpi-card"
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.1 }}
+                  >
+                    <div className="kpi-header">
+                      <span>Live Checked-in Guests</span>
+                      <Users size={14} />
+                    </div>
+                    <div className="kpi-value tabular-nums">{data.liveCheckins.length} Guests</div>
+                    <div className="kpi-trend up">
+                      <span>Live sync online</span>
+                    </div>
+                  </motion.div>
+
+                  <motion.div 
+                    className="glass-card kpi-card"
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.15 }}
+                  >
+                    <div className="kpi-header">
+                      <span>Watchlist suspects</span>
+                      <AlertTriangle size={14} />
+                    </div>
+                    <div className="kpi-value tabular-nums" style={{ color: 'var(--danger)' }}>{watchlistHitsCount} Flagged</div>
+                    <div className="kpi-trend down" style={{ color: 'var(--danger)' }}>
+                      <span>Immediate audit recommended</span>
+                    </div>
+                  </motion.div>
                 </div>
 
-                <div className="map-layout">
-                  <div className="map-container">
-                    <div id="leafletMap"></div>
+                {/* Geospatial Map section */}
+                <motion.div 
+                  className="glass-card"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.2 }}
+                >
+                  <div className="panel-header" style={{ marginBottom: '14px' }}>
+                    <h3>District Geospatial Surveillance</h3>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button className={`filter-chip ${mapMode === 'occupancy' ? 'active' : ''}`} onClick={() => setMapMode('occupancy')} style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--border-color)', background: mapMode === 'occupancy' ? 'var(--primary)' : 'none', color: mapMode === 'occupancy' ? '#000' : 'inherit' }}>Occupancy density</button>
+                      <button className={`filter-chip ${mapMode === 'alerts' ? 'active' : ''}`} onClick={() => setMapMode('alerts')} style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--border-color)', background: mapMode === 'alerts' ? 'var(--primary)' : 'none', color: mapMode === 'alerts' ? '#000' : 'inherit' }}>Threat heatmap</button>
+                    </div>
                   </div>
 
-                  <div className="district-list-rail">
-                    {data.districts.map(d => {
-                      const isSelected = selectedDistrictId === d.id;
-                      let badgeBg = 'var(--success-glow)';
-                      let badgeText = 'var(--success)';
-                      let statusLabel = 'Clear';
-                      
-                      if (d.activeSos > 0) {
-                        badgeBg = 'var(--danger-glow)';
-                        badgeText = 'var(--danger)';
-                        statusLabel = `${d.activeSos} SOS Alarms`;
-                      } else if (d.watchlistMatches > 0) {
-                        badgeBg = 'var(--warning-glow)';
-                        badgeText = 'var(--warning)';
-                        statusLabel = `${d.watchlistMatches} Threat Flags`;
-                      }
-
-                      return (
+                  <div className="map-layout">
+                    <div className="map-container">
+                      <div id="leafletMap"></div>
+                    </div>
+                    <div className="district-list-rail" style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto' }}>
+                      {data.districts.map(d => (
                         <div 
-                          key={d.id}
-                          className={`district-row ${isSelected ? 'selected' : ''}`}
-                          onClick={() => setSelectedDistrictId(isSelected ? null : d.id)}
+                          key={d.id} 
+                          className={`district-row ${selectedDistrictId === d.id ? 'selected' : ''}`}
+                          onClick={() => setSelectedDistrictId(prev => prev === d.id ? null : d.id)}
+                          style={{ padding: '8px', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', backgroundColor: selectedDistrictId === d.id ? 'var(--bg-input)' : 'none' }}
                         >
-                          <div className="district-info">
-                            <h4>{d.name}</h4>
-                            <p>{d.PGs + d.hotels} Lodgings</p>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                            <strong>{d.name}</strong>
+                            <span style={{ color: d.activeSos > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>{d.activeSos} SOS</span>
                           </div>
-                          <div className="district-stat">
-                            <span className="district-occupancy">{d.occupancy}% occupancy</span>
-                            <span className="district-badge" style={{ backgroundColor: badgeBg, color: badgeText }}>
-                              {statusLabel}
-                            </span>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                            <span>{d.occupancy}% Occupancy</span>
+                            <span>{d.watchlistMatches} watchlists</span>
                           </div>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* ─── DYNAMIC MAP ZONE SECTOR DETAILS (TAP MAP ZONE RESULTS) ─── */}
+                {selectedDistrictId && (
+                  <motion.div 
+                    className="glass-card" 
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{ borderLeft: '4px solid var(--primary)', display: 'flex', flexDirection: 'column', gap: '14px' }}
+                  >
+                    <div className="panel-header">
+                      <div>
+                        <h3 style={{ fontSize: '15px' }}>Surveillance Sector Analysis: {activeDistrictName}</h3>
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tap a PG property below to inspect its live occupant list and flagged matches.</p>
+                      </div>
+                      <button 
+                        onClick={() => setSelectedDistrictId(null)}
+                        style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
+                      >
+                        x Clear Sector Filter
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '16px' }}>
+                      
+                      {/* Step 1: PGs in Sector */}
+                      <div>
+                        <h4 style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>PGs & Hotels in Zone ({data.properties.filter(p => filterBySelectedDistrict(p.district)).length})</h4>
+                        <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {data.properties.filter(p => filterBySelectedDistrict(p.district)).map(p => {
+                            const isSelectedPG = activeZonePropertyId === p.id;
+                            const hasFlaggedGuests = data.liveCheckins.some(c => c.propertyName === p.name && c.watchlistMatch);
+                            return (
+                              <div 
+                                key={p.id} 
+                                onClick={() => setActiveZonePropertyId(p.id)}
+                                style={{ 
+                                  display: 'flex', 
+                                  justifyContent: 'space-between', 
+                                  alignItems: 'center',
+                                  padding: '10px', 
+                                  backgroundColor: isSelectedPG ? 'var(--secondary-bg)' : 'var(--bg-input)', 
+                                  borderRadius: '8px', 
+                                  cursor: 'pointer', 
+                                  border: isSelectedPG ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                                  transition: 'all 0.2s ease'
+                                }}
+                              >
+                                <div>
+                                  <span style={{ fontSize: '12.2px', fontWeight: 'bold', display: 'block', color: isSelectedPG ? 'var(--primary)' : 'inherit' }}>{p.name}</span>
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{p.type} • Compliance {p.complianceScore}%</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {hasFlaggedGuests && (
+                                    <span style={{ backgroundColor: 'var(--danger-subtle)', color: 'var(--danger)', fontSize: '8.5px', fontWeight: 'bold', padding: '2px 4px', borderRadius: '4px' }}>
+                                      SUSPECT
+                                    </span>
+                                  )}
+                                  <span className={`status-indicator ${p.status}`} style={{ fontSize: '9.5px' }}>{p.status}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Step 2: Occupants Manifest for Selected PG */}
+                      <div>
+                        {activeZonePropertyId ? (
+                          (() => {
+                            const selectedPG = data.properties.find(p => p.id === activeZonePropertyId);
+                            if (!selectedPG) return null;
+                            const guestsAtPG = data.liveCheckins.filter(c => c.propertyName === selectedPG.name);
+                            const flaggedGuests = guestsAtPG.filter(c => c.watchlistMatch);
+                            const regularGuests = guestsAtPG.filter(c => !c.watchlistMatch);
+
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <h4 style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+                                  Roster: {selectedPG.name} ({guestsAtPG.length} checked-in)
+                                </h4>
+
+                                {flaggedGuests.length > 0 && (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid var(--danger)', padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(255, 39, 39, 0.04)' }}>
+                                    <div style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <AlertTriangle size={12} /> FLAGGED CRIMINAL MATCHES ({flaggedGuests.length})
+                                    </div>
+                                    {flaggedGuests.map(c => (
+                                      <div 
+                                        key={c.id}
+                                        onClick={() => setSelectedItem({ type: 'guest', item: c })}
+                                        style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '6px', backgroundColor: 'var(--bg-input)', borderRadius: '6px', cursor: 'pointer', border: '1px solid var(--danger)' }}
+                                      >
+                                        <img src={c.photo} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                        <div style={{ flex: 1 }}>
+                                          <span style={{ fontSize: '11.5px', fontWeight: 'bold', color: 'var(--danger)', display: 'block' }}>{c.guestName}</span>
+                                          <span style={{ fontSize: '9px', color: 'var(--text-muted)', display: 'block' }}>Room {c.roomNumber} • {c.watchlistReason}</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  {regularGuests.map(c => (
+                                    <div 
+                                      key={c.id}
+                                      onClick={() => setSelectedItem({ type: 'guest', item: c })}
+                                      style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px', backgroundColor: 'var(--bg-input)', borderRadius: '8px', cursor: 'pointer', border: '1px solid var(--border-color)' }}
+                                    >
+                                      <img src={c.photo} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                      <div style={{ flex: 1 }}>
+                                        <span style={{ fontSize: '11.5px', fontWeight: 'bold', display: 'block' }}>{c.guestName}</span>
+                                        <span style={{ fontSize: '9.5px', color: 'var(--text-muted)' }}>{c.gender} • Room {c.roomNumber} • Aadhaar {c.idNumber}</span>
+                                      </div>
+                                      <span className={`status-indicator ${c.status}`} style={{ fontSize: '9px' }}>{c.status}</span>
+                                    </div>
+                                  ))}
+                                  {guestsAtPG.length === 0 && (
+                                    <div style={{ padding: '14px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '11.5px' }}>
+                                      No live guests checked in at this property.
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '180px', border: '1px dashed var(--border-color)', borderRadius: '8px', color: 'var(--text-muted)' }}>
+                            <Building size={18} style={{ marginBottom: '6px', color: 'var(--text-muted)' }} />
+                            <span style={{ fontSize: '11px', textAlign: 'center' }}>Select a PG property to load occupant manifest.</span>
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* CCTV SURVEILLANCE FEED MONITORING GRID */}
+                <motion.div 
+                  className="glass-card"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.25 }}
+                >
+                  <div className="panel-header" style={{ marginBottom: '12px' }}>
+                    <div>
+                      <h3>Live CCTV Safety Feed Monitoring Grid</h3>
+                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Real-time camera feed integrations from verified PG accommodations.</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className="pulse-dot" style={{ width: '8px', height: '8px', backgroundColor: 'var(--success)', borderRadius: '50%' }}></span>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--success)' }}>ALL FEEDS ONLINE</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                    {[
+                      { name: 'NTR PG Entrance', location: 'Vijayawada', status: 'REC', fps: '25 fps', img: 'https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=300&q=80' },
+                      { name: 'Vizag Girls Hostel Gate', location: 'Visakhapatnam', status: 'REC', fps: '24 fps', img: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=300&q=80' },
+                      { name: 'Guntur PG Lobby Lobby', location: 'Guntur', status: 'REC', fps: '22 fps', img: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=300&q=80' },
+                      { name: 'Tirupati PG Corridor B', location: 'Tirupati', status: 'REC', fps: '30 fps', img: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=300&q=80' }
+                    ].map((feed, idx) => (
+                      <div 
+                        key={idx} 
+                        onClick={() => openAlert("CCTV Camera Ping", `Verified connection to ${feed.name} CCTV channel. Packet loss: 0%. Status: Operating.`)}
+                        style={{ position: 'relative', height: '120px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', cursor: 'pointer' }}
+                      >
+                        {/* REC Indicators */}
+                        <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', alignItems: 'center', gap: '4px', zIndex: 2 }}>
+                          <span style={{ width: '6px', height: '6px', backgroundColor: 'var(--danger)', borderRadius: '50%', display: 'inline-block' }}></span>
+                          <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#fff', textShadow: '1px 1px 2px #000' }}>{feed.status}</span>
+                        </div>
+                        <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '9px', color: '#fff', zIndex: 2, textShadow: '1px 1px 2px #000' }}>
+                          {feed.fps}
+                        </div>
+                        
+                        {/* Simulation Graphic */}
+                        <div 
+                          style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            backgroundImage: `linear-gradient(rgba(0,255,0,0.03) 50%, rgba(0,0,0,0.25) 50%), url('${feed.img}')`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            filter: 'grayscale(0.5) contrast(1.1) brightness(0.7)',
+                            position: 'relative'
+                          }}
+                        >
+                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%)', backgroundSize: '100% 4px' }}></div>
+                        </div>
+
+                        <div style={{ position: 'absolute', bottom: '8px', left: '8px', zIndex: 2, textShadow: '1px 1px 2px #000' }}>
+                          <div style={{ fontSize: '10.5px', fontWeight: 'bold', color: '#fff' }}>{feed.name}</div>
+                          <div style={{ fontSize: '9px', color: '#ccc' }}>{feed.location} Surveillance</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* GPS PATROL DISPATCH ROSTER */}
+                <motion.div 
+                  className="glass-card"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.3 }}
+                >
+                  <div className="panel-header" style={{ marginBottom: '12px' }}>
+                    <div>
+                      <h3>GPS Ground Patrol Fleet Dispatch</h3>
+                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Command routing log for active district patrol officers patrolling verified PG sectors.</p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    {[
+                      { callsign: 'AP-PATROL-09', district: 'NTR Vijayawada', officer: 'SI Ramesh Kumar', status: 'En Route', eta: '4 Mins', active: true },
+                      { callsign: 'AP-PATROL-04', district: 'Visakhapatnam', officer: 'SI K. Prasad', status: 'On Scene', eta: 'Arrived', active: false },
+                      { callsign: 'AP-PATROL-11', district: 'Guntur City', officer: 'SI V. Murthy', status: 'Standby', eta: '--', active: false },
+                      { callsign: 'AP-PATROL-15', district: 'Tirupati Urban', officer: 'SI A. Naidu', status: 'Patrolling', eta: '--', active: true }
+                    ].map((patrol, idx) => (
+                      <div 
+                        key={idx} 
+                        style={{ padding: '12px', backgroundColor: 'var(--bg-input)', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '12.5px', fontWeight: 'bold', fontFamily: 'var(--font-mono)' }}>{patrol.callsign}</span>
+                            <span style={{ fontSize: '9.5px', backgroundColor: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>{patrol.district}</span>
+                          </div>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Officer: {patrol.officer}</p>
+                          <button 
+                            style={{ background: 'none', border: 'none', color: 'var(--primary)', padding: 0, marginTop: '8px', fontSize: '10.5px', cursor: 'pointer', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            onClick={() => openPrompt(`Send Command Message to ${patrol.callsign}:`, "Maintain high alert at Guntur girls hostel cluster.", (msg) => {
+                              if (msg) openAlert("Message Dispatched", `Transmission confirmed to ${patrol.callsign}: "${msg}"`);
+                            })}
+                          >
+                            Send command message
+                          </button>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '11px', color: patrol.active ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 'bold', display: 'block' }}>{patrol.status}</span>
+                          <span style={{ fontSize: '9.5px', color: 'var(--text-secondary)' }}>{patrol.eta}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              </>
+            )}
+
+            {/* 2. REGISTRY SCREEN */}
+            {currentTab === 'registry' && (
+              <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="panel-header">
+                  <h3>Checked-in Guests Database Registry</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 10px' }}>
+                    <Search size={12} color="var(--text-muted)" />
+                    <input 
+                      type="text" 
+                      placeholder="Search any keyword..." 
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '12px', outline: 'none', width: '200px' }}
+                    />
                   </div>
                 </div>
-              </div>
-
-              {/* QUICK TABLES CONTAINER */}
-              <div className="table-container">
-                <div className="tabs-header">
-                  <button 
-                    className={`tab-btn ${activeTableTab === 'checkins' ? 'active' : ''}`}
-                    onClick={() => setActiveTableTab('checkins')}
-                  >
-                    Live Check-in Registry
-                  </button>
-                  <button 
-                    className={`tab-btn ${activeTableTab === 'properties' ? 'active' : ''}`}
-                    onClick={() => setActiveTableTab('properties')}
-                  >
-                    Properties List
-                  </button>
-                  <button 
-                    className={`tab-btn ${activeTableTab === 'audit' ? 'active' : ''}`}
-                    onClick={() => setActiveTableTab('audit')}
-                  >
-                    Compliance Registry
-                  </button>
-                </div>
-
-                <div className="table-wrapper">
-                  {activeTableTab === 'checkins' && (
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Guest Name</th>
-                          <th>Identity Code</th>
-                          <th>Nationality</th>
-                          <th>PG / Property</th>
-                          <th>Check-in Time</th>
-                          <th>Verification Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.liveCheckins
-                          .filter(c => filterBySelectedDistrict(c.propertyName))
-                          .filter(c => searchFilter([c.guestName, c.idNumber, c.propertyName]))
-                          .map(guest => (
-                            <tr 
-                              key={guest.id} 
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => setSelectedItem({ type: 'guest', item: guest })}
-                            >
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                  <img src={guest.photo} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                                  <strong>{guest.guestName}</strong>
-                                </div>
-                              </td>
-                              <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{guest.idType}: {guest.idNumber}</td>
-                              <td>{guest.nationality}</td>
-                              <td>{guest.propertyName} <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Room {guest.roomNumber}</div></td>
-                              <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{new Date(guest.checkinTime).toLocaleTimeString()}</td>
-                              <td>
-                                <span className={`status-indicator ${guest.status}`}>
-                                  {guest.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  )}
-
-                  {activeTableTab === 'properties' && (
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Property Name</th>
-                          <th>Type</th>
-                          <th>Address</th>
-                          <th>Occupancy</th>
-                          <th>Compliance Score</th>
-                          <th>Permit Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.properties
-                          .filter(p => filterBySelectedDistrict(p.district))
-                          .filter(p => searchFilter([p.name, p.ownerName, p.address]))
-                          .map(prop => (
-                            <tr 
-                              key={prop.id} 
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => setSelectedItem({ type: 'property', item: prop })}
-                            >
-                              <td><strong>{prop.name}</strong></td>
-                              <td><span style={{ fontWeight: 'bold', fontSize: '10px' }}>{prop.type}</span></td>
-                              <td>{prop.address}</td>
-                              <td style={{ fontFamily: 'var(--font-mono)' }}>{prop.occupiedRooms}/{prop.totalRooms} rooms</td>
-                              <td>
-                                <span className={`score-badge ${prop.complianceScore > 85 ? 'high' : (prop.complianceScore > 50 ? 'mid' : 'low')}`}>
-                                  {prop.complianceScore}%
-                                </span>
-                              </td>
-                              <td>
-                                <span className={`status-indicator ${prop.status}`}>
-                                  {prop.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  )}
-
-                  {activeTableTab === 'audit' && (
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Hostel Facility</th>
-                          <th>CCTV Security</th>
-                          <th>Fire Safety License</th>
-                          <th>Guard Security details</th>
-                          <th>Last Audited</th>
-                          <th>Quick Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.properties
-                          .filter(p => filterBySelectedDistrict(p.district))
-                          .filter(p => searchFilter([p.name]))
-                          .map(prop => (
-                            <tr key={prop.id}>
-                              <td><strong>{prop.name}</strong></td>
-                              <td>
-                                <span style={{ color: prop.cctvWorking ? 'var(--success)' : 'var(--danger)', fontWeight: '700' }}>
-                                  {prop.cctvWorking ? '✓ Online' : '✗ Offline'}
-                                </span>
-                              </td>
-                              <td>
-                                <span style={{ color: prop.fireSafety ? 'var(--success)' : 'var(--danger)', fontWeight: '700' }}>
-                                  {prop.fireSafety ? '✓ Certified' : '✗ Expired/None'}
-                                </span>
-                              </td>
-                              <td>{prop.guardDetails}</td>
-                              <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{prop.lastAudit}</td>
-                              <td>
-                                <button className="btn-action-small" onClick={() => handleForceAudit(prop.id)}>
-                                  Trigger Audit Check
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {/* TAB 2: PROPERTIES VIEW */}
-          {currentTab === 'properties' && (
-            <div className="dashboard-center">
-              <div className="table-container">
-                <div className="panel-header">
-                  <h3>All Registered Hospitality Accommodations</h3>
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Total: {data.properties.length} Active Records
-                  </span>
-                </div>
 
                 <div className="table-wrapper">
                   <table>
                     <thead>
                       <tr>
-                        <th>Accommodation Name</th>
-                        <th>Type</th>
-                        <th>District / Location</th>
-                        <th>Owner / Phone</th>
-                        <th>Occupancy Level</th>
-                        <th>Safety Score</th>
-                        <th>Status</th>
-                        <th>Audit Action</th>
+                        <th>Guest Name</th>
+                        <th>Credentials Type & ID</th>
+                        <th>Country</th>
+                        <th>Stay Property</th>
+                        <th>Room</th>
+                        <th>Verification Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {data.properties
-                        .filter(p => searchFilter([p.name, p.ownerName, p.district]))
-                        .map(prop => (
-                          <tr 
-                            key={prop.id} 
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => setSelectedItem({ type: 'property', item: prop })}
-                          >
-                            <td><strong>{prop.name}</strong></td>
-                            <td><span style={{ fontSize: '10px', fontWeight: 'bold' }}>{prop.type}</span></td>
-                            <td>{prop.address} <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{prop.district}</div></td>
-                            <td>{prop.ownerName} <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{prop.ownerPhone}</div></td>
-                            <td style={{ fontFamily: 'var(--font-mono)' }}>{prop.occupiedRooms}/{prop.totalRooms} rooms</td>
-                            <td>
-                              <span className={`score-badge ${prop.complianceScore > 85 ? 'high' : (prop.complianceScore > 50 ? 'mid' : 'low')}`}>
-                                {prop.complianceScore}%
-                              </span>
-                            </td>
-                            <td>
-                              <span className={`status-indicator ${prop.status}`}>
-                                {prop.status}
-                              </span>
-                            </td>
-                            <td onClick={e => e.stopPropagation()}>
-                              <button className="btn-action-small" onClick={() => handleForceAudit(prop.id)}>
-                                Force Audit
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: LIVE GUESTS MANIFEST */}
-          {currentTab === 'guests' && (
-            <div className="dashboard-center">
-              <div className="table-container">
-                <div className="panel-header">
-                  <h3>Active Occupant manifest registers</h3>
-                </div>
-
-                <div className="table-wrapper">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Occupant Details</th>
-                        <th>Contact Phone</th>
-                        <th>ID Credentials</th>
-                        <th>Property Stay Location</th>
-                        <th>Nationality</th>
-                        <th>Check-in Timestamp</th>
-                        <th>Watchlist status</th>
-                        <th>Administrative Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.liveCheckins
-                        .filter(c => searchFilter([c.guestName, c.idNumber, c.propertyName]))
-                        .map(guest => (
-                          <tr 
-                            key={guest.id}
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => setSelectedItem({ type: 'guest', item: guest })}
-                          >
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <img src={guest.photo} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                                <div>
-                                  <strong>{guest.guestName}</strong>
-                                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Age {guest.age}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td>{guest.phone}</td>
-                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{guest.idType}: {guest.idNumber}</td>
-                            <td>
-                              {guest.propertyName}
-                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Room {guest.roomNumber}</div>
-                            </td>
-                            <td>{guest.nationality}</td>
-                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{new Date(guest.checkinTime).toLocaleString()}</td>
-                            <td>
-                              <span className={`status-indicator ${guest.status}`}>
-                                {guest.status}
-                              </span>
-                            </td>
-                            <td onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '6px' }}>
-                              <button className="btn-action-small primary" onClick={() => handleVerifyGuest(guest.id)}>Verify</button>
-                              <button className="btn-action-small" style={{ backgroundColor: 'var(--warning-glow)', color: 'var(--warning)', borderColor: 'var(--warning)' }} onClick={() => handleEscalateGuest(guest.id)}>Escalate</button>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: WATCHLIST HITS */}
-          {currentTab === 'threats' && (
-            <div className="dashboard-center">
-              <div className="table-container" style={{ borderLeft: '4px solid var(--danger)' }}>
-                <div className="panel-header">
-                  <h3 style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <AlertTriangle size={18} />
-                    Watchlist Hit Alert Matches
-                  </h3>
-                  <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'var(--danger-glow)', color: 'var(--danger)', fontWeight: 'bold' }}>
-                    CRITICAL ALARMS
-                  </span>
-                </div>
-
-                <div className="table-wrapper">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Suspect Profile</th>
-                        <th>ID Credentials Checked</th>
-                        <th>Stay Property details</th>
-                        <th>Risk Categorization</th>
-                        <th>Watchlist Match Note</th>
-                        <th>Review State</th>
-                        <th>Emergency Command Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.liveCheckins
-                        .filter(c => c.watchlistMatch || c.status === 'Watchlist Match' || c.status === 'Escalated')
-                        .map(guest => (
-                          <tr key={guest.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedItem({ type: 'guest', item: guest })}>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <img src={guest.photo} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--danger)' }} alt="" />
-                                <div>
-                                  <strong>{guest.guestName}</strong>
-                                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Age {guest.age} • {guest.nationality}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{guest.idType}: {guest.idNumber}</td>
-                            <td>{guest.propertyName} <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Room {guest.roomNumber}</div></td>
-                            <td>
-                              <span style={{ color: 'var(--danger)', fontWeight: 'bold', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <AlertCircle size={12} /> High Alert
-                              </span>
-                            </td>
-                            <td style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>{guest.watchlistReason || 'Flagged name matched crime databases'}</td>
-                            <td>
-                              <span className={`status-indicator ${guest.status}`}>
-                                {guest.status}
-                              </span>
-                            </td>
-                            <td onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '8px' }}>
-                              <button className="btn-action-small primary" style={{ backgroundColor: 'var(--success)', borderColor: 'var(--success)' }} onClick={() => handleVerifyGuest(guest.id)}>
-                                De-escalate & Clear
-                              </button>
-                              <button className="btn-action-small" style={{ backgroundColor: 'var(--danger)', borderColor: 'var(--danger)', color: '#fff' }} onClick={() => handleFlagGuest(guest.id)}>
-                                Lock & Suspend
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: SOS DISPATCHES */}
-          {currentTab === 'sos' && (
-            <div className="dashboard-center">
-              <div className="table-container" style={{ borderTop: '4px solid var(--danger)' }}>
-                <div className="panel-header">
-                  <h3 style={{ color: 'var(--danger)' }}>Active SOS Dispatches & Incident Logs</h3>
-                  <button className="btn-pulse">
-                    <span>{data.incidents.filter(i => i.status === 'Dispatch Active').length} DISPATCHES ACTIVE</span>
-                  </button>
-                </div>
-
-                <div className="table-wrapper">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Incident Case ID</th>
-                        <th>Hostel Facility</th>
-                        <th>Alarm Categorization</th>
-                        <th>Trigger Timestamp</th>
-                        <th>Assigned Patrol Officer</th>
-                        <th>Ground Status</th>
-                        <th>Control room Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.incidents.map(inc => (
-                        <tr key={inc.id}>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 'bold' }}>{inc.id}</td>
+                      {data.liveCheckins.filter(searchFilter).filter(c => filterBySelectedDistrict(c.propertyName)).map(c => (
+                        <tr key={c.id} onClick={() => setSelectedItem({ type: 'guest', item: c })} style={{ cursor: 'pointer' }}>
                           <td>
-                            <strong>{inc.propertyName}</strong>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{inc.district}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <img src={c.photo} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                              <strong>{c.guestName}</strong>
+                            </div>
                           </td>
+                          <td className="mono-id">{c.idType}: {c.idNumber}</td>
+                          <td>{c.nationality}</td>
+                          <td>{c.propertyName}</td>
+                          <td>{c.roomNumber}</td>
                           <td>
-                            <span style={{ color: 'var(--danger)', fontWeight: 'bold', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <AlertCircle size={12} /> {inc.type}
+                            <span className={`status-indicator ${c.status}`}>
+                              {c.status}
                             </span>
-                          </td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{new Date(inc.reportedAt).toLocaleString()}</td>
-                          <td><strong>{inc.assignedOfficer}</strong></td>
-                          <td>
-                            <span className={`status-indicator ${inc.status === 'Dispatch Active' ? 'flagged' : (inc.status === 'Resolved' ? 'verified' : 'pending')}`}>
-                              {inc.status}
-                            </span>
-                          </td>
-                          <td style={{ display: 'flex', gap: '8px' }}>
-                            {inc.status !== 'Resolved' && (
-                              <>
-                                <button className="btn-action-small primary" onClick={() => handleResolveIncident(inc.id)}>
-                                  Resolve Case
-                                </button>
-                                <button className="btn-action-small" style={{ backgroundColor: 'var(--border-subtle)', color: 'var(--text-primary)' }} onClick={() => handleReassignOfficer(inc.id)}>
-                                  Reassign
-                                </button>
-                              </>
-                            )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              </div>
-            </div>
-          )}
+              </motion.div>
+            )}
 
-          {/* TAB 6: COMPLIANCE AUDITS */}
-          {currentTab === 'compliance' && (
-            <div className="dashboard-center">
-              <div className="compliance-grid">
+            {/* ─── NEW TABS: 3. PG APPLICATIONS SURVEILLANCE & WORKFLOW ─── */}
+            {currentTab === 'pg-applications' && (
+              <motion.div className="glass-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 
-                {data.properties.map(prop => {
-                  let complianceLabel = 'High Compliance';
-                  let scoreColor = 'var(--success)';
+                <div className="panel-header" style={{ marginBottom: '14px' }}>
+                  <div>
+                    <h3>PG Applications Physical Verification Registry</h3>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Command workflow system for ground patrol assignment, document requests, and operating approvals.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Sub tabs */}
+                <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '16px' }}>
+                  <button 
+                    className={`filter-chip ${verificationSubTab === 'pending' ? 'active' : ''}`} 
+                    onClick={() => setVerificationSubTab('pending')}
+                    style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '11.5px', cursor: 'pointer', border: '1px solid var(--border-color)', background: verificationSubTab === 'pending' ? 'var(--primary)' : 'none', color: verificationSubTab === 'pending' ? '#000' : 'inherit', fontWeight: 'bold' }}
+                  >
+                    Verification Pending ({data.properties.filter(p => p.verificationStatus === 'submitted_physical' || p.verificationStatus === 'docs_required').length})
+                  </button>
+                  <button 
+                    className={`filter-chip ${verificationSubTab === 'verified' ? 'active' : ''}`} 
+                    onClick={() => setVerificationSubTab('verified')}
+                    style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '11.5px', cursor: 'pointer', border: '1px solid var(--border-color)', background: verificationSubTab === 'verified' ? 'var(--primary)' : 'none', color: verificationSubTab === 'verified' ? '#000' : 'inherit', fontWeight: 'bold' }}
+                  >
+                    Police Verified / Reports Uploaded ({data.properties.filter(p => p.verificationStatus === 'police_verified').length})
+                  </button>
+                  <button 
+                    className={`filter-chip ${verificationSubTab === 'approved' ? 'active' : ''}`} 
+                    onClick={() => setVerificationSubTab('approved')}
+                    style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '11.5px', cursor: 'pointer', border: '1px solid var(--border-color)', background: verificationSubTab === 'approved' ? 'var(--primary)' : 'none', color: verificationSubTab === 'approved' ? '#000' : 'inherit', fontWeight: 'bold' }}
+                  >
+                    Approved PGs ({data.properties.filter(p => p.verificationStatus === 'approved').length})
+                  </button>
+                  <button 
+                    className={`filter-chip ${verificationSubTab === 'declined' ? 'active' : ''}`} 
+                    onClick={() => setVerificationSubTab('declined')}
+                    style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '11.5px', cursor: 'pointer', border: '1px solid var(--border-color)', background: verificationSubTab === 'declined' ? 'var(--primary)' : 'none', color: verificationSubTab === 'declined' ? '#000' : 'inherit', fontWeight: 'bold' }}
+                  >
+                    Declined PGs ({data.properties.filter(p => p.verificationStatus === 'declined').length})
+                  </button>
+                </div>
+
+                {/* Sub Tab lists */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   
-                  if (prop.complianceScore < 50) {
-                    complianceLabel = 'Non-compliant (Under Review)';
-                    scoreColor = 'var(--danger)';
-                  } else if (prop.complianceScore < 85) {
-                    complianceLabel = 'Moderate Compliance';
-                    scoreColor = 'var(--warning)';
-                  }
+                  {/* PENDING SUBMISSION TAB */}
+                  {verificationSubTab === 'pending' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {data.properties.filter(p => p.verificationStatus === 'submitted_physical' || p.verificationStatus === 'docs_required').map(p => (
+                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                          <div>
+                            <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
+                            <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{p.address} • {p.district}</p>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                              <span>Owner: {p.ownerName} ({p.ownerPhone})</span>
+                              <span>Submitted: {p.submittedDate}</span>
+                            </div>
+                            {p.verificationStatus === 'docs_required' && (
+                              <div style={{ marginTop: '8px', padding: '6px 10px', backgroundColor: 'var(--warning-subtle)', border: '1px solid var(--warning)', borderRadius: '6px', fontSize: '11px', color: 'var(--warning)', fontWeight: 'bold' }}>
+                                paused: {p.policeReportComments}
+                              </div>
+                            )}
+                          </div>
 
-                  return (
-                    <div key={prop.id} className="compliance-card" style={{ borderLeft: `4px solid ${scoreColor}` }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <h4>{prop.name}</h4>
-                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{prop.address}</p>
-                          <span style={{ display: 'inline-block', fontSize: '10px', fontWeight: 'bold', color: scoreColor, marginTop: '4px' }}>
-                            {complianceLabel}
-                          </span>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              className="btn-action-large success" 
+                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
+                              onClick={() => handleSendPatrolVerification(p.id)}
+                            >
+                              <Send size={11} /> Send Police Patrol
+                            </button>
+                            <button 
+                              className="btn-action-large warning" 
+                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
+                              onClick={() => handleRequestMoreDocs(p.id)}
+                            >
+                              <HelpCircle size={11} /> Request Documents
+                            </button>
+                            <button 
+                              className="btn-action-large" 
+                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px', border: '1px solid var(--border-color)' }}
+                              onClick={() => handleReuploadRequiredDocs(p.id)}
+                            >
+                              <RefreshCw size={11} /> Re-upload docs
+                            </button>
+                          </div>
                         </div>
-                        <span style={{ fontSize: '20px', fontWeight: '800', color: scoreColor }}>
-                          {prop.complianceScore}%
-                        </span>
-                      </div>
-
-                      <div className="compliance-status-row" style={{ marginTop: '10px', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
-                        <span>CCTV Feed Online:</span>
-                        <strong style={{ color: prop.cctvWorking ? 'var(--success)' : 'var(--danger)' }}>
-                          {prop.cctvWorking ? '✓ Online' : '✗ Offline'}
-                        </strong>
-                      </div>
-
-                      <div className="compliance-status-row">
-                        <span>Fire Safety Clearance:</span>
-                        <strong style={{ color: prop.fireSafety ? 'var(--success)' : 'var(--danger)' }}>
-                          {prop.fireSafety ? '✓ Verified' : '✗ Expired'}
-                        </strong>
-                      </div>
-
-                      <div className="compliance-status-row">
-                        <span>Security Personnel details:</span>
-                        <span>{prop.guardDetails}</span>
-                      </div>
-
-                      <div className="compliance-status-row" style={{ marginBottom: '8px' }}>
-                        <span>Last compliance Audit:</span>
-                        <span style={{ fontFamily: 'var(--font-mono)' }}>{prop.lastAudit}</span>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
-                        <button className="btn-action-small primary" style={{ flex: 1 }} onClick={() => handleForceAudit(prop.id)}>
-                          Re-run Audit Check
-                        </button>
-                        <button className="btn-action-small" style={{ flex: 1, backgroundColor: 'var(--danger-glow)', color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleFlagProperty(prop.id)}>
-                          Flag Listing
-                        </button>
-                      </div>
+                      ))}
+                      {data.properties.filter(p => p.verificationStatus === 'submitted_physical' || p.verificationStatus === 'docs_required').length === 0 && (
+                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '12px' }}>No properties in this verification queue.</div>
+                      )}
                     </div>
-                  );
-                })}
+                  )}
 
+                  {/* POLICE VERIFIED TAB */}
+                  {verificationSubTab === 'verified' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {data.properties.filter(p => p.verificationStatus === 'police_verified').map(p => (
+                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                          <div style={{ flex: 1 }}>
+                            <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
+                            <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{p.address} • {p.district}</p>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '10.5px', color: 'var(--text-secondary)' }}>
+                              <span>Verification Officer: <strong>{p.verificationOfficer}</strong></span>
+                              <span>Submitted: {p.submittedDate}</span>
+                            </div>
+                            <div style={{ marginTop: '8px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '6px', fontSize: '11px', border: '1px solid var(--border-color)' }}>
+                              <strong>Patrol Report Comment:</strong> {p.policeReportComments}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px', marginLeft: '14px' }}>
+                            <button 
+                              className="btn-action-large success" 
+                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
+                              onClick={() => handleVerifyProperty(p.id)}
+                            >
+                              <Check size={11} /> Approve PG
+                            </button>
+                            <button 
+                              className="btn-action-large danger" 
+                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
+                              onClick={() => handleSuspendProperty(p.id)}
+                            >
+                              <XCircle size={11} /> Decline PG
+                            </button>
+                            <button 
+                              className="btn-action-large warning" 
+                              style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }}
+                              onClick={() => handleRequestMoreDocs(p.id)}
+                            >
+                              Need Documents
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {data.properties.filter(p => p.verificationStatus === 'police_verified').length === 0 && (
+                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '12px' }}>No reports submitted for review.</div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* APPROVED TAB */}
+                  {verificationSubTab === 'approved' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {data.properties.filter(p => p.verificationStatus === 'approved').map(p => (
+                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                          <div>
+                            <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
+                            <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{p.address} • {p.district}</p>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: 'bold', backgroundColor: 'var(--success-subtle)', padding: '4px 8px', borderRadius: '6px' }}>✓ Approved & Active</span>
+                            <button 
+                              style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
+                              onClick={() => setSelectedItem({ type: 'property', item: p })}
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* DECLINED TAB */}
+                  {verificationSubTab === 'declined' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {data.properties.filter(p => p.verificationStatus === 'declined').map(p => (
+                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                          <div>
+                            <h4 style={{ fontSize: '13.5px', fontWeight: 'bold' }}>{p.name}</h4>
+                            <p style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{p.address} • {p.district}</p>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 'bold', backgroundColor: 'var(--danger-subtle)', padding: '4px 8px', borderRadius: '6px' }}>✗ Suspended / Declined</span>
+                            <button 
+                              style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
+                              onClick={() => handleSendPatrolVerification(p.id)}
+                            >
+                              Request Re-Verification
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                </div>
+
+              </motion.div>
+            )}
+
+            {/* 4. LIVE MAP SCREEN */}
+            {currentTab === 'livemap' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <motion.div className="glass-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <div className="panel-header" style={{ marginBottom: '10px' }}>
+                    <h3>Full GIS Surveillance Map</h3>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Realtime tracking across AP</span>
+                  </div>
+                  <div className="map-layout" style={{ height: '520px', gridTemplateColumns: '1fr 280px' }}>
+                    <div className="map-container" style={{ height: '100%' }}>
+                      <div id="leafletMapFull" style={{ height: '100%', width: '100%' }}></div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', paddingLeft: '10px' }}>
+                      <h4>Active Dispatch Log</h4>
+                      {data.incidents.map(inc => (
+                        <div key={inc.id} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', backgroundColor: 'var(--bg-input)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 'bold' }}>
+                            <span>{inc.id}</span>
+                            <span style={{ color: 'var(--danger)' }}>{inc.status}</span>
+                          </div>
+                          <p style={{ fontSize: '11px', margin: '4px 0', color: 'var(--text-muted)' }}>{inc.details}</p>
+                          <div style={{ fontSize: '9px', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>{inc.propertyName}</span>
+                            <span>{inc.assignedOfficer}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* DYNAMIC MAP ZONE SECTOR DETAILS (TAP MAP ZONE RESULTS) */}
+                {selectedDistrictId && (
+                  <motion.div 
+                    className="glass-card" 
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{ borderLeft: '4px solid var(--primary)', display: 'flex', flexDirection: 'column', gap: '14px' }}
+                  >
+                    <div className="panel-header">
+                      <div>
+                        <h3 style={{ fontSize: '15px' }}>Surveillance Sector Analysis: {activeDistrictName}</h3>
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tap a PG property below to inspect its live occupant list and flagged matches.</p>
+                      </div>
+                      <button 
+                        onClick={() => setSelectedDistrictId(null)}
+                        style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
+                      >
+                        x Clear Sector Filter
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '16px' }}>
+                      
+                      {/* Step 1: PGs in Sector */}
+                      <div>
+                        <h4 style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>PGs & Hotels in Zone ({data.properties.filter(p => filterBySelectedDistrict(p.district)).length})</h4>
+                        <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {data.properties.filter(p => filterBySelectedDistrict(p.district)).map(p => {
+                            const isSelectedPG = activeZonePropertyId === p.id;
+                            const hasFlaggedGuests = data.liveCheckins.some(c => c.propertyName === p.name && c.watchlistMatch);
+                            return (
+                              <div 
+                                key={p.id} 
+                                onClick={() => setActiveZonePropertyId(p.id)}
+                                style={{ 
+                                  display: 'flex', 
+                                  justifyContent: 'space-between', 
+                                  alignItems: 'center',
+                                  padding: '10px', 
+                                  backgroundColor: isSelectedPG ? 'var(--secondary-bg)' : 'var(--bg-input)', 
+                                  borderRadius: '8px', 
+                                  cursor: 'pointer', 
+                                  border: isSelectedPG ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                                  transition: 'all 0.2s ease'
+                                }}
+                              >
+                                <div>
+                                  <span style={{ fontSize: '12.2px', fontWeight: 'bold', display: 'block', color: isSelectedPG ? 'var(--primary)' : 'inherit' }}>{p.name}</span>
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{p.type} • Compliance {p.complianceScore}%</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {hasFlaggedGuests && (
+                                    <span style={{ backgroundColor: 'var(--danger-subtle)', color: 'var(--danger)', fontSize: '8.5px', fontWeight: 'bold', padding: '2px 4px', borderRadius: '4px' }}>
+                                      SUSPECT
+                                    </span>
+                                  )}
+                                  <span className={`status-indicator ${p.status}`} style={{ fontSize: '9.5px' }}>{p.status}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Step 2: Occupants Manifest for Selected PG */}
+                      <div>
+                        {activeZonePropertyId ? (
+                          (() => {
+                            const selectedPG = data.properties.find(p => p.id === activeZonePropertyId);
+                            if (!selectedPG) return null;
+                            const guestsAtPG = data.liveCheckins.filter(c => c.propertyName === selectedPG.name);
+                            const flaggedGuests = guestsAtPG.filter(c => c.watchlistMatch);
+                            const regularGuests = guestsAtPG.filter(c => !c.watchlistMatch);
+
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <h4 style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+                                  Roster: {selectedPG.name} ({guestsAtPG.length} checked-in)
+                                </h4>
+
+                                {flaggedGuests.length > 0 && (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid var(--danger)', padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(255, 39, 39, 0.04)' }}>
+                                    <div style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <AlertTriangle size={12} /> FLAGGED CRIMINAL MATCHES ({flaggedGuests.length})
+                                    </div>
+                                    {flaggedGuests.map(c => (
+                                      <div 
+                                        key={c.id}
+                                        onClick={() => setSelectedItem({ type: 'guest', item: c })}
+                                        style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '6px', backgroundColor: 'var(--bg-input)', borderRadius: '6px', cursor: 'pointer', border: '1px solid var(--danger)' }}
+                                      >
+                                        <img src={c.photo} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                        <div style={{ flex: 1 }}>
+                                          <span style={{ fontSize: '11.5px', fontWeight: 'bold', color: 'var(--danger)', display: 'block' }}>{c.guestName}</span>
+                                          <span style={{ fontSize: '9px', color: 'var(--text-muted)', display: 'block' }}>Room {c.roomNumber} • {c.watchlistReason}</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  {regularGuests.map(c => (
+                                    <div 
+                                      key={c.id}
+                                      onClick={() => setSelectedItem({ type: 'guest', item: c })}
+                                      style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px', backgroundColor: 'var(--bg-input)', borderRadius: '8px', cursor: 'pointer', border: '1px solid var(--border-color)' }}
+                                    >
+                                      <img src={c.photo} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                      <div style={{ flex: 1 }}>
+                                        <span style={{ fontSize: '11.5px', fontWeight: 'bold', display: 'block' }}>{c.guestName}</span>
+                                        <span style={{ fontSize: '9.5px', color: 'var(--text-muted)' }}>{c.gender} • Room {c.roomNumber} • Aadhaar {c.idNumber}</span>
+                                      </div>
+                                      <span className={`status-indicator ${c.status}`} style={{ fontSize: '9px' }}>{c.status}</span>
+                                    </div>
+                                  ))}
+                                  {guestsAtPG.length === 0 && (
+                                    <div style={{ padding: '14px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '11.5px' }}>
+                                      No live guests checked in at this property.
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '180px', border: '1px dashed var(--border-color)', borderRadius: '8px', color: 'var(--text-muted)' }}>
+                            <Building size={18} style={{ marginBottom: '6px', color: 'var(--text-muted)' }} />
+                            <span style={{ fontSize: '11px', textAlign: 'center' }}>Select a PG property to load occupant manifest.</span>
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+                  </motion.div>
+                )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* TAB 7: ANALYTICS HUB */}
-          {currentTab === 'analytics' && (
-            <div className="dashboard-center">
-              
-              <div className="analytics-grid">
-                
-                {/* Custom SVG Bar Graph: District Occupancy */}
-                <div className="graph-card">
-                  <h3>District Occupancy Density comparison</h3>
-                  <div className="graph-canvas-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '20px 40px' }}>
+            {/* 5. SEARCH SCREEN (WITH COUNTRY AND KEYWORD SEARCH) */}
+            {currentTab === 'search' && (
+              <motion.div className="glass-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="panel-header" style={{ marginBottom: '14px' }}>
+                  <h3>Deep Security Search Console</h3>
+                </div>
+
+                <div className="search-console-grid">
+                  <div className="search-sidebar">
+                    <div className="filter-group">
+                      <label>Keyword search</label>
+                      <input 
+                        type="text" 
+                        placeholder="Search country, name, id..." 
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="filter-input"
+                      />
+                    </div>
+
+                    <div className="filter-group">
+                      <label>Threat Status</label>
+                      <select className="filter-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                        <option value="All">All Statuses</option>
+                        <option value="Cleared">Cleared Only</option>
+                        <option value="Watchlist Match">Watchlist Matches</option>
+                        <option value="Escalated">Escalated</option>
+                        <option value="Flagged">Flagged</option>
+                      </select>
+                    </div>
+
+                    <div className="filter-group">
+                      <label>Origin</label>
+                      <select className="filter-select" value={filterNationality} onChange={e => setFilterNationality(e.target.value)}>
+                        <option value="All">All Nationalities</option>
+                        <option value="Indian">Indian Citizens</option>
+                        <option value="Foreigner">Foreign Nationals</option>
+                      </select>
+                    </div>
+
+                    <div className="filter-group">
+                      <label>Max Age: <span style={{ fontFamily: 'var(--font-mono)' }}>{filterAge}</span></label>
+                      <input 
+                        type="range" 
+                        min="18" 
+                        max="80" 
+                        value={filterAge} 
+                        onChange={e => setFilterAge(parseInt(e.target.value))}
+                        style={{ accentColor: 'var(--primary)' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="table-wrapper" style={{ maxHeight: '450px', overflowY: 'auto' }}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Guest</th>
+                          <th>Nationality</th>
+                          <th>ID Scanned</th>
+                          <th>Location</th>
+                          <th>Age</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.liveCheckins
+                          .filter(searchFilter)
+                          .filter(c => filterStatus === 'All' ? true : c.status === filterStatus)
+                          .filter(c => {
+                            if (filterNationality === 'All') return true;
+                            if (filterNationality === 'Indian') return c.nationality === 'Indian';
+                            return c.nationality !== 'Indian';
+                          })
+                          .filter(c => c.age <= filterAge)
+                          .filter(c => filterBySelectedDistrict(c.propertyName))
+                          .map(c => (
+                            <tr key={c.id} onClick={() => setSelectedItem({ type: 'guest', item: c })} style={{ cursor: 'pointer' }}>
+                              <td><strong>{c.guestName}</strong></td>
+                              <td>{c.nationality}</td>
+                              <td>{c.idType}</td>
+                              <td>{c.propertyName}</td>
+                              <td>{c.age}</td>
+                              <td>
+                                <span className={`status-indicator ${c.status}`}>
+                                  {c.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 6. ALERTS SCREEN */}
+            {currentTab === 'alerts' && (
+              <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="panel-header">
+                  <h3>Active Alarms & Threat Stream</h3>
+                </div>
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Severity</th>
+                        <th>Alarms category</th>
+                        <th>Event Log details</th>
+                        <th>Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.alerts.map(a => (
+                        <tr key={a.id}>
+                          <td>
+                            <span className={`status-indicator ${a.severity === 'critical' ? 'flagged' : (a.severity === 'warning' ? 'pending' : 'verified')}`} style={{ textTransform: 'uppercase' }}>
+                              {a.severity}
+                            </span>
+                          </td>
+                          <td className="mono-id">{a.type}</td>
+                          <td>{a.message}</td>
+                          <td>{a.time}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 7. WATCHLIST SCREEN */}
+            {currentTab === 'watchlist' && (
+              <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ borderLeft: '4px solid var(--danger)' }}>
+                <div className="panel-header">
+                  <h3 style={{ color: 'var(--danger)' }}>Watchlist Critical suspect matching database</h3>
+                </div>
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Photo</th>
+                        <th>Suspect Name</th>
+                        <th>Origin nationality</th>
+                        <th>Identity Code</th>
+                        <th>Watchlist warning detail</th>
+                        <th>Action dispatch</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.liveCheckins.filter(c => c.watchlistMatch).filter(c => filterBySelectedDistrict(c.propertyName)).map(c => (
+                        <tr key={c.id} onClick={() => setSelectedItem({ type: 'guest', item: c })} style={{ cursor: 'pointer' }}>
+                          <td><img src={c.photo} style={{ width: '30px', height: '30px', borderRadius: '50%' }} alt="" /></td>
+                          <td><strong>{c.guestName}</strong></td>
+                          <td>{c.nationality}</td>
+                          <td className="mono-id">{c.idNumber}</td>
+                          <td style={{ color: 'var(--danger)', fontWeight: 'bold' }}>{c.watchlistReason}</td>
+                          <td onClick={e => e.stopPropagation()}>
+                            <button className="btn-action-small primary" style={{ backgroundColor: 'var(--danger)', color: '#000', border: 'none', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }} onClick={() => handleEscalateGuest(c.id)}>Dispatch Patrol</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 8. BOOKINGS SCREEN */}
+            {currentTab === 'bookings' && (
+              <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="panel-header">
+                  <h3>Real-time Booking Registry logs</h3>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Latest PG & Hotel checkins</span>
+                </div>
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Booking ID</th>
+                        <th>Stay Property</th>
+                        <th>Guest Name</th>
+                        <th>Room Number</th>
+                        <th>Check-in date & time</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.liveCheckins.filter(c => filterBySelectedDistrict(c.propertyName)).slice(0, 15).map(c => (
+                        <tr key={c.id}>
+                          <td className="mono-id">BK-{c.id.replace('CHK-', '')}</td>
+                          <td>{c.propertyName}</td>
+                          <td><strong>{c.guestName}</strong></td>
+                          <td>Room {c.roomNumber}</td>
+                          <td className="mono-id">{new Date(c.checkinTime).toLocaleString()}</td>
+                          <td><span className="status-indicator Cleared">Checked-In</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 9. OCCUPANCY SCREEN */}
+            {currentTab === 'occupancy' && (
+              <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="panel-header">
+                  <h3>Facility Occupancy Capacity details</h3>
+                </div>
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Property name</th>
+                        <th>Type</th>
+                        <th>District region</th>
+                        <th>Total Rooms</th>
+                        <th>Occupied Rooms</th>
+                        <th>Occupancy ratio</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.properties.filter(p => filterBySelectedDistrict(p.district)).map(p => (
+                        <tr key={p.id}>
+                          <td><strong>{p.name}</strong></td>
+                          <td>{p.type}</td>
+                          <td>{p.district}</td>
+                          <td>{p.totalRooms}</td>
+                          <td>{p.occupiedRooms}</td>
+                          <td className="mono-id">
+                            <span style={{ color: p.occupiedRooms/p.totalRooms > 0.85 ? 'var(--danger)' : 'var(--text-main)', fontWeight: 'bold' }}>
+                              {Math.round((p.occupiedRooms / p.totalRooms) * 100)}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 10. VERIFICATIONS SCREEN */}
+            {currentTab === 'verifications' && (
+              <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="panel-header">
+                  <h3>Administrative Identity Verification Audit</h3>
+                </div>
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Guest</th>
+                        <th>Document Type</th>
+                        <th>ID Document scan preview</th>
+                        <th>Verification Status</th>
+                        <th>Administrative actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.liveCheckins.filter(c => filterBySelectedDistrict(c.propertyName)).slice(0, 10).map(c => (
+                        <tr key={c.id}>
+                          <td><strong>{c.guestName}</strong></td>
+                          <td>{c.idType}</td>
+                          <td>
+                            <img src={c.idImage} style={{ width: '80px', height: '45px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-color)' }} alt="" />
+                          </td>
+                          <td><span className={`status-indicator ${c.status}`}>{c.status}</span></td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button className="btn-action-small primary" onClick={() => handleVerifyGuest(c.id)}>Clear</button>
+                              <button className="btn-action-small" onClick={() => handleFlagGuest(c.id)}>Flag</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 11. AUDITS SCREEN */}
+            {currentTab === 'audits' && (
+              <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="panel-header">
+                  <h3>CCTV & Ground Safety Auditing</h3>
+                </div>
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Property</th>
+                        <th>CCTV Camera Status</th>
+                        <th>Fire safety certificate</th>
+                        <th>Guard on duty details</th>
+                        <th>Last automated audit</th>
+                        <th>Auditing triggers</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.properties.filter(p => filterBySelectedDistrict(p.district)).map(p => (
+                        <tr key={p.id}>
+                          <td><strong>{p.name}</strong></td>
+                          <td style={{ color: p.cctvWorking ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>{p.cctvWorking ? 'Online' : 'Offline'}</td>
+                          <td style={{ color: p.fireSafety ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>{p.fireSafety ? 'Certified' : 'Expired'}</td>
+                          <td>{p.guardDetails}</td>
+                          <td className="mono-id">{p.lastAudit}</td>
+                          <td>
+                            <button className="btn-action-small" onClick={() => handleForceAudit(p.id)}>Test camera ping</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 12. INCIDENTS SCREEN */}
+            {currentTab === 'incidents' && (
+              <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="panel-header">
+                  <h3>Emergency SOS Panic Buttons Dispatch Room</h3>
+                </div>
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Incident ID</th>
+                        <th>Location property</th>
+                        <th>Severity Category</th>
+                        <th>Reported Timeline</th>
+                        <th>Officer Assigned</th>
+                        <th>Dispatch status</th>
+                        <th>Administrative Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.incidents.map(inc => (
+                        <tr key={inc.id}>
+                          <td className="mono-id"><strong>{inc.id}</strong></td>
+                          <td>{inc.propertyName}</td>
+                          <td style={{ color: 'var(--danger)', fontWeight: 'bold' }}>{inc.type}</td>
+                          <td className="mono-id">{new Date(inc.reportedAt).toLocaleString()}</td>
+                          <td>{inc.assignedOfficer}</td>
+                          <td>
+                            <span className={`incident-badge ${inc.status === 'Dispatch Active' ? 'dispatch' : 'resolved'}`}>
+                              {inc.status}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              {inc.status !== 'Resolved' && (
+                                <button className="btn-action-small primary" onClick={() => handleResolveIncident(inc.id)}>Mark Resolved</button>
+                              )}
+                              <button className="btn-action-small" onClick={() => handleReassignOfficer(inc.id)}>Assign Patrol</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 13. COMPLIANCE SCREEN */}
+            {currentTab === 'compliance' && (
+              <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="panel-header">
+                  <h3>Properties Compliance ratings</h3>
+                </div>
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>PG/Hotel Name</th>
+                        <th>Address</th>
+                        <th>Compliance safety score</th>
+                        <th>Status</th>
+                        <th>Quick actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.properties.filter(p => filterBySelectedDistrict(p.district)).map(p => (
+                        <tr key={p.id}>
+                          <td><strong>{p.name}</strong></td>
+                          <td>{p.address}</td>
+                          <td>
+                            <span className={`score-badge ${p.complianceScore > 85 ? 'high' : (p.complianceScore > 50 ? 'mid' : 'low')}`}>
+                              {p.complianceScore}%
+                            </span>
+                          </td>
+                          <td><span className={`status-indicator ${p.status}`}>{p.status}</span></td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button className="btn-action-small primary" onClick={() => handleVerifyProperty(p.id)}>Verify</button>
+                              <button className="btn-action-small" onClick={() => handleFlagProperty(p.id)}>Flag</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 14. REPORTS SCREEN */}
+            {currentTab === 'reports' && (
+              <motion.div className="analytics-grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="glass-card graph-card">
+                  <h3>District occupancy density comparisons</h3>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '20px 40px', height: '220px' }}>
                     {data.districts.map(d => (
                       <div key={d.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '10px' }}>
-                        <div style={{ position: 'relative', width: '32px', height: '180px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ position: 'relative', width: '32px', height: '140px', backgroundColor: 'var(--bg-input)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                           <div style={{ 
                             position: 'absolute', 
                             bottom: 0, 
                             left: 0, 
                             width: '100%', 
                             height: `${d.occupancy}%`, 
-                            background: d.occupancy > 78 ? 'linear-gradient(to top, var(--danger), #f87171)' : 'linear-gradient(to top, var(--accent), var(--info))',
-                            borderRadius: '4px',
-                            transition: 'height 0.8s ease'
+                            background: d.occupancy > 78 ? 'linear-gradient(to top, var(--danger), #f87171)' : 'linear-gradient(to top, var(--primary), #82ca9d)',
+                            borderRadius: '4px'
                           }}></div>
                         </div>
                         <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{d.id.replace('AP-', '')}</span>
-                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{d.occupancy}%</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{d.occupancy}%</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Custom SVG Donut Chart: Property Category Breakdown */}
-                <div className="graph-card">
-                  <h3>Accommodations Types</h3>
-                  <div className="graph-canvas-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
-                    <svg width="120" height="120" viewBox="0 0 42 42">
-                      <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--border-subtle)" strokeWidth="4"></circle>
-                      
-                      {/* Segment 1: PGs (60%) */}
-                      <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--accent)" strokeWidth="4.5" strokeDasharray="60 40" strokeDashoffset="25"></circle>
-                      
-                      {/* Segment 2: Hotels (30%) */}
-                      <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--success)" strokeWidth="4.5" strokeDasharray="30 70" strokeDashoffset="65"></circle>
-                      
-                      {/* Segment 3: Guesthouses (10%) */}
-                      <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--warning)" strokeWidth="4.5" strokeDasharray="10 90" strokeDashoffset="95"></circle>
-                    </svg>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', padding: '0 10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: 'var(--accent)', borderRadius: '50%' }}></span> PG Hostels</span>
-                        <strong>60%</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: 'var(--success)', borderRadius: '50%' }}></span> Hotels</span>
-                        <strong>30%</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: 'var(--warning)', borderRadius: '50%' }}></span> Guesthouses</span>
-                        <strong>10%</strong>
-                      </div>
+                <div className="glass-card graph-card">
+                  <h3>Accommodations ratio distributions</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '20px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary)' }}>60%</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Paying Guest Hostels (PGs)</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--success)' }}>30%</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Verified Hotels</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--warning)' }}>10%</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Guesthouses</div>
                     </div>
                   </div>
                 </div>
+              </motion.div>
+            )}
 
-              </div>
-
-              {/* Custom SVG Line Chart: Safety Score Metrics */}
-              <div className="graph-card" style={{ marginTop: '24px' }}>
-                <h3>Average District Safety & Compliance Rating</h3>
-                <div style={{ padding: '20px 40px 10px 40px' }}>
-                  <svg viewBox="0 0 500 120" style={{ width: '100%', height: '120px' }}>
-                    <path 
-                      d="M 20 80 Q 100 40 180 60 T 340 20 T 480 30" 
-                      fill="none" 
-                      stroke="var(--info)" 
-                      strokeWidth="3.5"
+            {/* 15. USERS SCREEN */}
+            {currentTab === 'users' && (
+              <motion.div className="glass-card table-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="panel-header">
+                  <h3>Full Occupant Manifest lists</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 10px' }}>
+                    <Search size={12} color="var(--text-muted)" />
+                    <input 
+                      type="text" 
+                      placeholder="Search users..." 
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '12px', outline: 'none', width: '200px' }}
                     />
-                    
-                    {/* Data Points */}
-                    <circle cx="20" cy="80" r="4.5" fill="var(--bg-primary)" stroke="var(--info)" strokeWidth="2" />
-                    <circle cx="120" cy="45" r="4.5" fill="var(--bg-primary)" stroke="var(--info)" strokeWidth="2" />
-                    <circle cx="220" cy="55" r="4.5" fill="var(--bg-primary)" stroke="var(--info)" strokeWidth="2" />
-                    <circle cx="320" cy="22" r="4.5" fill="var(--bg-primary)" stroke="var(--info)" strokeWidth="2" />
-                    <circle cx="420" cy="28" r="4.5" fill="var(--bg-primary)" stroke="var(--info)" strokeWidth="2" />
-                  </svg>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                    <span>NTR Vijayawada</span>
-                    <span>Visakhapatnam</span>
-                    <span>Guntur</span>
-                    <span>Tirupati</span>
-                    <span>Kurnool</span>
                   </div>
                 </div>
-              </div>
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Guest Profile</th>
+                        <th>Identity Credentials</th>
+                        <th>Phone</th>
+                        <th>Origin Nationality</th>
+                        <th>Property location</th>
+                        <th>Age</th>
+                        <th>Verification Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.liveCheckins.filter(searchFilter).filter(c => filterBySelectedDistrict(c.propertyName)).map(c => (
+                        <tr key={c.id} onClick={() => setSelectedItem({ type: 'guest', item: c })} style={{ cursor: 'pointer' }}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <img src={c.photo} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                              <strong>{c.guestName}</strong>
+                            </div>
+                          </td>
+                          <td>{c.idType}: {c.idNumber}</td>
+                          <td>{c.phone}</td>
+                          <td>{c.nationality}</td>
+                          <td>{c.propertyName}</td>
+                          <td>{c.age}</td>
+                          <td><span className={`status-indicator ${c.status}`}>{c.status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
 
-            </div>
+            {/* ─── ENHANCED 16. SETTINGS SCREEN WITH INTERACTIVE CONTROLS ─── */}
+            {currentTab === 'settings' && (
+              <motion.div className="glass-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="panel-header">
+                  <h3>System Settings & Administrative Controls</h3>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Secure API & Command Routing Configuration</span>
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                  
+                  {/* Left Column: Toggles */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <h4 style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Surveillance Integration Preferences</h4>
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', backgroundColor: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div>
+                        <strong style={{ fontSize: '12.5px' }}>Biometric Scan Integration</strong>
+                        <p style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Verify occupant identity against UIDAI Aadhaar registry.</p>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={biometricEnabled} 
+                        onChange={() => setBiometricEnabled(!biometricEnabled)}
+                        style={{ width: '34px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', backgroundColor: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div>
+                        <strong style={{ fontSize: '12.5px' }}>Auto-Dispatch Emergency Squads</strong>
+                        <p style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Automatically assign nearest ground vehicle on critical SOS.</p>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={autoDispatchEnabled} 
+                        onChange={() => setAutoDispatchEnabled(!autoDispatchEnabled)}
+                        style={{ width: '34px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', backgroundColor: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div>
+                        <strong style={{ fontSize: '12.5px' }}>Facial Recognition Check-in scan</strong>
+                        <p style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Enable automated camera matching at PG entry gates.</p>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={facialRecognition} 
+                        onChange={() => setFacialRecognition(!facialRecognition)}
+                        style={{ width: '34px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', backgroundColor: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div>
+                        <strong style={{ fontSize: '12.5px' }}>WhatsApp / SMS Alerts Notifications</strong>
+                        <p style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Send automatic dispatch alerts to district inspectors.</p>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={whatsappAlerts} 
+                        onChange={() => setWhatsappAlerts(!whatsappAlerts)}
+                        style={{ width: '34px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                      />
+                    </div>
+
+                    <div style={{ padding: '10px', backgroundColor: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <strong style={{ fontSize: '12.5px' }}>Patrol Dispatch Range Radius</strong>
+                        <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', fontWeight: 'bold' }}>{dispatchRadius} km</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="1" 
+                        max="15" 
+                        value={dispatchRadius} 
+                        onChange={e => setDispatchRadius(parseInt(e.target.value))}
+                        style={{ width: '100%', accentColor: 'var(--primary)' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column: Inputs & Commands */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <h4 style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Command Routing Details</h4>
+                    
+                    <div className="filter-group">
+                      <label style={{ fontSize: '10.5px', fontWeight: 'bold' }}>COMMAND CONTROL CENTER CODE</label>
+                      <input 
+                        type="text" 
+                        className="filter-input" 
+                        value={stationCode} 
+                        onChange={e => setStationCode(e.target.value)}
+                        style={{ padding: '8px 10px', fontSize: '12px' }}
+                      />
+                    </div>
+
+                    <div className="filter-group">
+                      <label style={{ fontSize: '10.5px', fontWeight: 'bold' }}>SECURE ACCESS SECURITY KEY</label>
+                      <input 
+                        type="password" 
+                        className="filter-input" 
+                        value={apiKey} 
+                        onChange={e => setApiKey(e.target.value)}
+                        style={{ padding: '8px 10px', fontSize: '12px', fontFamily: 'var(--font-mono)' }}
+                      />
+                    </div>
+
+                    <div className="filter-group">
+                      <label style={{ fontSize: '10.5px', fontWeight: 'bold' }}>REAL-TIME DATA REFRESH FREQUENCY</label>
+                      <select 
+                        className="filter-select" 
+                        value={syncInterval} 
+                        onChange={e => setSyncInterval(e.target.value)}
+                        style={{ padding: '8px 10px', fontSize: '12px' }}
+                      >
+                        <option value="5s">5 Seconds (Ultra-Fast)</option>
+                        <option value="10s">10 Seconds</option>
+                        <option value="30s">30 Seconds (Standard)</option>
+                        <option value="60s">60 Seconds</option>
+                      </select>
+                    </div>
+
+                    {/* MOCK DATA INTEGRATIONS AND WORKFLOW ACTIONS */}
+                    <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '14px', marginTop: '6px' }}>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '8px' }}>MOCK FLOW CONTROLS</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <button 
+                          className="btn-action-large warning" 
+                          style={{ fontSize: '11px', height: '32px', padding: 0 }}
+                          onClick={handleTriggerMockAlarm}
+                        >
+                          Trigger SOS Alarm
+                        </button>
+                        <button 
+                          className="btn-action-large success" 
+                          style={{ fontSize: '11px', height: '32px', padding: 0 }}
+                          onClick={handleInjectMockGuest}
+                        >
+                          Inject Checked-In Guest
+                        </button>
+                        <button 
+                          className="btn-action-large" 
+                          style={{ fontSize: '11px', height: '32px', padding: 0, gridColumn: 'span 2', border: '1px solid var(--border-color)' }}
+                          onClick={handleResetData}
+                        >
+                          Reset Database Logs
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '14px', marginTop: '10px' }}>
+                  <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)' }}>SYSTEM THEME PREFERENCE</label>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                    <button className={`filter-chip ${theme === 'dark' ? 'active' : ''}`} onClick={() => setTheme('dark')} style={{ padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', border: '1px solid var(--border-color)', background: theme === 'dark' ? 'var(--primary)' : 'none', color: theme === 'dark' ? '#000' : 'inherit', fontWeight: 'bold' }}>Charcoal dark mode</button>
+                    <button className={`filter-chip ${theme === 'light' ? 'active' : ''}`} onClick={() => setTheme('light')} style={{ padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', border: '1px solid var(--border-color)', background: theme === 'light' ? 'var(--primary)' : 'none', color: theme === 'light' ? '#000' : 'inherit', fontWeight: 'bold' }}>Sterile light mode</button>
+                  </div>
+                </div>
+
+              </motion.div>
+            )}
+
+          </div>
+
+          {/* ─── RIGHT RAIL (LIVE INTEL STREAM) ─── */}
+          {(currentTab !== 'livemap' && currentTab !== 'search' && currentTab !== 'pg-applications') && (
+            <aside className="right-rail">
+              <section className="panel-alert-stream">
+                <div className="alert-stream-header">
+                  <h3>Surveillance Stream</h3>
+                </div>
+                <div className="alert-ticker">
+                  {data.alerts.slice(0, 4).map(a => (
+                    <div 
+                      key={a.id} 
+                      className={`alert-card ${a.severity}`}
+                      onClick={() => {
+                        const prop = data.properties.find(p => p.id === a.propertyId);
+                        if (prop) setSelectedItem({ type: 'property', item: prop });
+                      }}
+                    >
+                      <div className="alert-icon-wrapper">
+                        {a.type === 'sos' && <AlertCircle size={12} />}
+                        {a.type === 'watchlist' && <Lock size={12} />}
+                        {a.type === 'compliance' && <Sliders size={12} />}
+                        {a.type === 'foreign' && <Eye size={12} />}
+                      </div>
+                      <div className="alert-body">
+                        <h4>{a.type}</h4>
+                        <p>{a.message}</p>
+                        <div className="alert-time">{a.time}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="incident-panel">
+                <h3>Patrol Queue</h3>
+                <div className="incident-list">
+                  {data.incidents.slice(0, 3).map(inc => (
+                    <div key={inc.id} className={`incident-card ${inc.status === 'Dispatch Active' ? 'active' : ''}`}>
+                      <div className="incident-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h4>{inc.type}</h4>
+                        <span className={`incident-badge ${inc.status === 'Dispatch Active' ? 'dispatch' : 'resolved'}`}>
+                          {inc.status}
+                        </span>
+                      </div>
+                      <p className="incident-desc">{inc.details}</p>
+                      <div className="incident-meta">
+                        <span>{inc.propertyName}</span>
+                        <span>{inc.assignedOfficer}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </aside>
           )}
-
-          {/* ─── RIGHT RAIL (LIVE LOG STREAM) ─── */}
-          <aside className="right-rail">
-            
-            {/* Intel Ticker */}
-            <section className="panel-alert-stream">
-              <div className="alert-stream-header">
-                <h3>Live Intel Feed</h3>
-                <span className="pulse-dot"></span>
-              </div>
-              <div className="alert-ticker">
-                {data.alerts.map(a => (
-                  <div 
-                    key={a.id} 
-                    className={`alert-card ${a.severity}`}
-                    onClick={() => {
-                      const prop = data.properties.find(p => p.id === a.propertyId);
-                      if (prop) setSelectedItem({ type: 'property', item: prop });
-                    }}
-                  >
-                    <div className="alert-icon-wrapper">
-                      {a.type === 'sos' && <AlertCircle size={14} />}
-                      {a.type === 'watchlist' && <Lock size={14} />}
-                      {a.type === 'compliance' && <Sliders size={14} />}
-                      {a.type === 'foreign' && <Eye size={14} />}
-                    </div>
-                    <div className="alert-body">
-                      <h4>{a.type} alert</h4>
-                      <p>{a.message}</p>
-                      <div className="alert-time">{a.time}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Incidents Dispatch */}
-            <section className="incident-panel">
-              <h3>Incidents Response Queue</h3>
-              <div className="incident-list">
-                {data.incidents.slice(0, 3).map(inc => (
-                  <div key={inc.id} className={`incident-card ${inc.status === 'Dispatch Active' ? 'active' : ''}`}>
-                    <div className="incident-head">
-                      <h4>{inc.type}</h4>
-                      <span className={`incident-badge ${inc.status === 'Dispatch Active' ? 'dispatch' : (inc.status === 'Resolved' ? 'resolved' : 'investigation')}`}>
-                        {inc.status}
-                      </span>
-                    </div>
-                    <p className="incident-desc">{inc.details}</p>
-                    <div className="incident-meta">
-                      <span>{inc.propertyName}</span>
-                      <span>{inc.assignedOfficer}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </aside>
 
         </div>
       </main>
@@ -1252,68 +2245,70 @@ export default function App() {
         {selectedItem && (
           <>
             <div className="drawer-close" onClick={() => setSelectedItem(null)}>
-              <XCircle size={18} />
+              <XCircle size={16} />
             </div>
 
             <div className="drawer-body">
-              
-              {/* If Drawer represents GUEST details */}
               {selectedItem.type === 'guest' && (
                 <>
                   <div className="drawer-header">
-                    <img 
-                      src={selectedItem.item.photo} 
-                      alt={selectedItem.item.guestName} 
-                      className="drawer-photo" 
-                    />
+                    <img src={selectedItem.item.photo} alt="" className="drawer-photo" />
                     <div className="drawer-title-desc">
                       <h3>{selectedItem.item.guestName}</h3>
-                      <p>{selectedItem.item.nationality} National • Age {selectedItem.item.age}</p>
+                      <p>{selectedItem.item.nationality} • Age {selectedItem.item.age}</p>
                     </div>
                   </div>
 
                   <div>
-                    <div className="drawer-section-title">Check-in Registry Info</div>
+                    <div className="drawer-section-title">Stay Information</div>
                     <div className="info-grid">
                       <div className="info-item">
                         <h5>Stay Facility</h5>
                         <p>{selectedItem.item.propertyName}</p>
                       </div>
                       <div className="info-item">
-                        <h5>Assigned Room</h5>
+                        <h5>Room Number</h5>
                         <p>Room {selectedItem.item.roomNumber}</p>
                       </div>
                       <div className="info-item">
                         <h5>Check-in Time</h5>
-                        <p>{new Date(selectedItem.item.checkinTime).toLocaleString()}</p>
+                        <p>{new Date(selectedItem.item.checkinTime).toLocaleDateString()}</p>
                       </div>
                       <div className="info-item">
-                        <h5>Contact Phone</h5>
+                        <h5>Check-out Time</h5>
+                        <p>{new Date(selectedItem.item.checkoutTime).toLocaleDateString()}</p>
+                      </div>
+                      <div className="info-item">
+                        <h5>Gender</h5>
+                        <p>{selectedItem.item.gender}</p>
+                      </div>
+                      <div className="info-item">
+                        <h5>Occupants Count</h5>
+                        <p>{selectedItem.item.guestCount} {selectedItem.item.guestCount > 1 ? 'People' : 'Person'}</p>
+                      </div>
+                      <div className="info-item" style={{ gridColumn: 'span 2' }}>
+                        <h5>Phone Number</h5>
                         <p>{selectedItem.item.phone}</p>
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <div className="drawer-section-title">Identity Credentials Scanned</div>
+                    <div className="drawer-section-title">Identity Scans</div>
                     <div className="info-item" style={{ marginBottom: '12px' }}>
-                      <h5>Verified Document</h5>
-                      <p>{selectedItem.item.idType} ({selectedItem.item.idNumber})</p>
+                      <h5>Scanned Document ID</h5>
+                      <p className="mono-id">{selectedItem.item.idType} ({selectedItem.item.idNumber})</p>
                     </div>
-                    <img 
-                      src={selectedItem.item.idImage} 
-                      alt="Scanned Document ID" 
-                      className="id-doc-preview" 
-                    />
+                    <img src={selectedItem.item.idImage} alt="" className="id-doc-preview" />
                   </div>
 
                   {selectedItem.item.watchlistMatch && (
-                    <div style={{ backgroundColor: 'var(--danger-glow)', border: '1px solid var(--danger)', padding: '16px', borderRadius: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger)', fontWeight: '700', fontSize: '13px', marginBottom: '6px' }}>
-                        <AlertTriangle size={16} />
-                        Watchlist Threat Flagged
+                    <div style={{ backgroundColor: 'var(--danger-subtle)', border: '1px solid var(--danger)', padding: '14px', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger)', fontWeight: '700', fontSize: '12px', marginBottom: '4px' }}>
+                        <AlertTriangle size={14} />
+                        Watchlist Flag Triggered
                       </div>
-                      <p style={{ fontSize: '11.5px', lineHeight: '1.5', color: 'var(--text-primary)' }}>
+                      <p style={{ fontSize: '11px', lineHeight: '1.4' }}>
                         {selectedItem.item.watchlistReason}
                       </p>
                     </div>
@@ -1321,24 +2316,23 @@ export default function App() {
 
                   <div className="drawer-actions">
                     <button className="btn-action-large success" onClick={() => handleVerifyGuest(selectedItem.item.id)}>
-                      <CheckCircle2 size={16} /> Clear Profile
+                      <CheckCircle2 size={14} /> Clear Suspect Profile
                     </button>
                     <button className="btn-action-large warning" onClick={() => handleEscalateGuest(selectedItem.item.id)}>
-                      <AlertTriangle size={16} /> Escalate to Control Room
+                      <AlertTriangle size={14} /> Escalate to Control Room
                     </button>
                     <button className="btn-action-large danger" onClick={() => handleFlagGuest(selectedItem.item.id)}>
-                      <XCircle size={16} /> Flag and Suspend Occupant
+                      <XCircle size={14} /> Flag and Suspend Account
                     </button>
                   </div>
                 </>
               )}
 
-              {/* If Drawer represents PROPERTY details */}
               {selectedItem.type === 'property' && (
                 <>
                   <div className="drawer-header">
-                    <div className="sidebar-logo" style={{ width: '48px', height: '48px', borderRadius: '10px' }}>
-                      <Building size={24} />
+                    <div className="sidebar-logo" style={{ width: '40px', height: '40px', borderRadius: '8px' }}>
+                      <Building size={20} />
                     </div>
                     <div className="drawer-title-desc">
                       <h3>{selectedItem.item.name}</h3>
@@ -1354,7 +2348,7 @@ export default function App() {
                         <p>{selectedItem.item.ownerName}</p>
                       </div>
                       <div className="info-item">
-                        <h5>Contact Phone</h5>
+                        <h5>Owner Phone</h5>
                         <p>{selectedItem.item.ownerPhone}</p>
                       </div>
                       <div className="info-item" style={{ gridColumn: 'span 2' }}>
@@ -1364,50 +2358,255 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* ─── LIVE OCCUPANTS LIST PER SPECIFIC PROPERTY REQUIREMENT ─── */}
                   <div>
-                    <div className="drawer-section-title">Compliance Audit Stats</div>
+                    <div className="drawer-section-title" style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Current Checked-In Guests ({data.liveCheckins.filter(c => c.propertyName === selectedItem.item.name).length})</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {data.liveCheckins.filter(c => c.propertyName === selectedItem.item.name).map(c => (
+                        <div 
+                          key={c.id} 
+                          style={{ padding: '8px', backgroundColor: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}
+                        >
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <img src={c.photo} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                            <div>
+                              <span style={{ fontSize: '11.5px', fontWeight: 'bold', display: 'block' }}>{c.guestName}</span>
+                              <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{c.gender} • Room {c.roomNumber} • {c.guestCount} {c.guestCount > 1 ? 'Guests' : 'Guest'}</span>
+                            </div>
+                            <span className={`status-indicator ${c.status}`} style={{ marginLeft: 'auto', fontSize: '9px' }}>{c.status}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9.5px', color: 'var(--text-secondary)', marginTop: '2px', borderTop: '1px solid rgba(255,255,255,0.02)', paddingTop: '4px' }}>
+                            <span>In: {new Date(c.checkinTime).toLocaleDateString()}</span>
+                            <span>Out: {new Date(c.checkoutTime).toLocaleDateString()}</span>
+                          </div>
+
+                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px', fontSize: '9.5px' }}>
+                            <span className="mono-id" style={{ color: 'var(--text-muted)' }}>Aadhaar: {c.idNumber}</span>
+                            <span 
+                              onClick={() => openAlert("Aadhaar Registry Check", `Aadhaar Scan ID: ${c.idNumber}\nScanned document image is validated against state police repository.`)}
+                              style={{ color: 'var(--primary)', cursor: 'pointer', textDecoration: 'underline' }}
+                            >
+                              Verify Aadhaar
+                            </span>
+                          </div>
+                          
+                          <img 
+                            src={c.idImage} 
+                            alt="Aadhaar ID Card Scan" 
+                            style={{ width: '100%', height: '54px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)', marginTop: '4px' }}
+                          />
+                        </div>
+                      ))}
+                      {data.liveCheckins.filter(c => c.propertyName === selectedItem.item.name).length === 0 && (
+                        <span style={{ fontSize: '11px', fontStyle: 'italic', color: 'var(--text-muted)' }}>No active guests currently checked in.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="drawer-section-title">Security audit details</div>
                     <div className="info-grid">
                       <div className="info-item">
-                        <h5>CCTV Status</h5>
+                        <h5>CCTV Connection</h5>
                         <p style={{ color: selectedItem.item.cctvWorking ? 'var(--success)' : 'var(--danger)', fontWeight: '700' }}>
                           {selectedItem.item.cctvWorking ? '✓ Online' : '✗ Offline'}
                         </p>
                       </div>
                       <div className="info-item">
-                        <h5>Fire clearance</h5>
+                        <h5>Fire Permits</h5>
                         <p style={{ color: selectedItem.item.fireSafety ? 'var(--success)' : 'var(--danger)', fontWeight: '700' }}>
-                          {selectedItem.item.fireSafety ? '✓ Verified' : '✗ Pending'}
+                          {selectedItem.item.fireSafety ? '✓ Certified' : '✗ Expired'}
                         </p>
                       </div>
                       <div className="info-item">
-                        <h5>Guard Security</h5>
+                        <h5>Guards Registered</h5>
                         <p>{selectedItem.item.guardDetails}</p>
                       </div>
                       <div className="info-item">
-                        <h5>Last Audit Date</h5>
-                        <p style={{ fontFamily: 'var(--font-mono)' }}>{selectedItem.item.lastAudit}</p>
+                        <h5>Last Inspection</h5>
+                        <p className="mono-id">{selectedItem.item.lastAudit}</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="drawer-actions">
                     <button className="btn-action-large success" onClick={() => handleVerifyProperty(selectedItem.item.id)}>
-                      <Check size={16} /> Approve Verification License
+                      <Check size={14} /> Approve Registration
                     </button>
                     <button className="btn-action-large warning" onClick={() => handleFlagProperty(selectedItem.item.id)}>
-                      <AlertTriangle size={16} /> Flag Facility Compliance
+                      <AlertTriangle size={14} /> Flag Security Deficit
                     </button>
                     <button className="btn-action-large danger" onClick={() => handleSuspendProperty(selectedItem.item.id)}>
-                      <XCircle size={16} /> Suspend Operation Permit
+                      <XCircle size={14} /> Suspend Operational License
                     </button>
                   </div>
                 </>
               )}
-
             </div>
           </>
         )}
       </div>
+
+      {/* ─── COMMAND PALETTE MODAL OVERLAY ─── */}
+      <AnimatePresence>
+        {showCommandPalette && (
+          <motion.div 
+            className="command-palette-modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowCommandPalette(false)}
+          >
+            <motion.div 
+              className="command-palette-modal"
+              initial={{ scale: 0.95, y: -20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: -20 }}
+              transition={{ duration: 0.2 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="command-palette-search-box">
+                <Search size={16} />
+                <input 
+                  ref={commandInputRef}
+                  type="text" 
+                  placeholder="Type a name, nationality, or command..." 
+                  value={commandSearch}
+                  onChange={e => setCommandSearch(e.target.value)}
+                />
+                <span className="esc-badge">ESC</span>
+              </div>
+              <div className="command-palette-results">
+                {commandSearch && (
+                  <div className="results-group">
+                    <div className="results-group-title">Search Results</div>
+                    {filteredCommandResults.length > 0 ? (
+                      filteredCommandResults.map(c => (
+                        <div 
+                          key={c.id} 
+                          className="result-item"
+                          onClick={() => {
+                            setSelectedItem({ type: 'guest', item: c });
+                            setShowCommandPalette(false);
+                          }}
+                        >
+                          <Users size={14} />
+                          <span>View profile: {c.guestName} ({c.propertyName})</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: '8px 12px', fontSize: '12px', color: 'var(--text-muted)' }}>No matches found for "{commandSearch}"</div>
+                    )}
+                  </div>
+                )}
+
+                <div className="results-group">
+                  <div className="results-group-title">Navigation Commands</div>
+                  <div className="result-item" onClick={() => { setCurrentTab('overview'); setShowCommandPalette(false); }}>
+                    <Activity size={14} />
+                    <span>Go to Command Center Overview</span>
+                  </div>
+                  <div className="result-item" onClick={() => { setCurrentTab('pg-applications'); setShowCommandPalette(false); }}>
+                    <Clock size={14} />
+                    <span>Open PG Physical Verification Registry</span>
+                  </div>
+                  <div className="result-item" onClick={() => { setCurrentTab('livemap'); setShowCommandPalette(false); }}>
+                    <Globe size={14} />
+                    <span>Open Live Geospatial Map</span>
+                  </div>
+                  <div className="result-item" onClick={() => { setCurrentTab('search'); setShowCommandPalette(false); }}>
+                    <Search size={14} />
+                    <span>Go to Advanced Search Console</span>
+                  </div>
+                  <div className="result-item" onClick={() => { setCurrentTab('watchlist'); setShowCommandPalette(false); }}>
+                    <Lock size={14} />
+                    <span>View Criminal Watchlist matches</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── CUSTOM DIALOG MODAL (REPLACING NATIVE ALERTS / PROMPTS) ─── */}
+      <AnimatePresence>
+        {customDialog && (
+          <motion.div 
+            className="command-palette-modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => {
+              if (customDialog.type === 'alert') {
+                customDialog.onConfirm('');
+                setCustomDialog(null);
+              }
+            }}
+          >
+            <motion.div 
+              className="command-palette-modal"
+              initial={{ scale: 0.95, y: -20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: -20 }}
+              transition={{ duration: 0.2 }}
+              onClick={e => e.stopPropagation()}
+              style={{ maxWidth: '440px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px', width: '90%' }}
+            >
+              <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--primary)', margin: 0 }}>{customDialog.title}</h3>
+              {customDialog.message && (
+                <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: 0, lineHeight: '1.5', whiteSpace: 'pre-line' }}>{customDialog.message}</p>
+              )}
+
+              {customDialog.type === 'prompt' && (
+                <div style={{ marginTop: '4px' }}>
+                  <input 
+                    type="text" 
+                    className="filter-input"
+                    placeholder={customDialog.placeholder || "Enter details..."}
+                    value={dialogInput}
+                    onChange={e => setDialogInput(e.target.value)}
+                    style={{ width: '100%', padding: '10px', fontSize: '12.5px', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'var(--bg-input)', color: 'var(--text-main)', outline: 'none' }}
+                    autoFocus
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        customDialog.onConfirm(dialogInput);
+                        setCustomDialog(null);
+                      } else if (e.key === 'Escape') {
+                        setCustomDialog(null);
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                {customDialog.type === 'prompt' && (
+                  <button 
+                    className="btn-action-large" 
+                    style={{ width: 'auto', padding: '6px 14px', fontSize: '12px', border: '1px solid var(--border-color)', height: '32px', background: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '6px' }}
+                    onClick={() => setCustomDialog(null)}
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button 
+                  className="btn-action-large success" 
+                  style={{ width: 'auto', padding: '6px 14px', fontSize: '12px', height: '32px', cursor: 'pointer' }}
+                  onClick={() => {
+                    customDialog.onConfirm(dialogInput);
+                    setCustomDialog(null);
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
