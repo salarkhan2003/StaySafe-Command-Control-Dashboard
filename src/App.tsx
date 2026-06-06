@@ -850,142 +850,7 @@ export default function App() {
                   </div>
                 </motion.div>
 
-                {/* ─── DYNAMIC MAP ZONE SECTOR DETAILS (TAP MAP ZONE RESULTS) ─── */}
-                {selectedDistrictId && (
-                  <motion.div 
-                    className="glass-card" 
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    style={{ borderLeft: '4px solid var(--primary)', display: 'flex', flexDirection: 'column', gap: '14px' }}
-                  >
-                    <div className="panel-header">
-                      <div>
-                        <h3 style={{ fontSize: '15px' }}>Surveillance Sector Analysis: {activeDistrictName}</h3>
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tap a PG property below to inspect its live occupant list and flagged matches.</p>
-                      </div>
-                      <button 
-                        onClick={() => setSelectedDistrictId(null)}
-                        style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
-                      >
-                        x Clear Sector Filter
-                      </button>
-                    </div>
 
-                    <div className="sector-analysis-grid">
-                      
-                      {/* Step 1: PGs in Sector */}
-                      <div>
-                        <h4 style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>PGs & Hotels in Zone ({data.properties.filter(p => filterBySelectedDistrict(p.district)).length})</h4>
-                        <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {data.properties.filter(p => filterBySelectedDistrict(p.district)).map(p => {
-                            const isSelectedPG = activeZonePropertyId === p.id;
-                            const hasFlaggedGuests = data.liveCheckins.some(c => c.propertyName === p.name && c.watchlistMatch);
-                            return (
-                              <div 
-                                key={p.id} 
-                                onClick={() => setActiveZonePropertyId(p.id)}
-                                style={{ 
-                                  display: 'flex', 
-                                  justifyContent: 'space-between', 
-                                  alignItems: 'center',
-                                  padding: '10px', 
-                                  backgroundColor: isSelectedPG ? 'var(--primary-subtle)' : 'var(--bg-input)', 
-                                  borderRadius: '8px', 
-                                  cursor: 'pointer', 
-                                  border: isSelectedPG ? '1px solid var(--primary)' : '1px solid var(--border-color)',
-                                  transition: 'all 0.2s ease'
-                                }}
-                              >
-                                <div>
-                                  <span style={{ fontSize: '12.2px', fontWeight: 'bold', display: 'block', color: isSelectedPG ? 'var(--primary)' : 'inherit' }}>{p.name}</span>
-                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{p.type} • Compliance {p.complianceScore}%</span>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  {hasFlaggedGuests && (
-                                    <span style={{ backgroundColor: 'var(--danger-subtle)', color: 'var(--danger)', fontSize: '8.5px', fontWeight: 'bold', padding: '2px 4px', borderRadius: '4px' }}>
-                                      SUSPECT
-                                    </span>
-                                  )}
-                                  <span className={`status-indicator ${p.status}`} style={{ fontSize: '9.5px' }}>{p.status}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Step 2: Occupants Manifest for Selected PG */}
-                      <div>
-                        {activeZonePropertyId ? (
-                          (() => {
-                            const selectedPG = data.properties.find(p => p.id === activeZonePropertyId);
-                            if (!selectedPG) return null;
-                            const guestsAtPG = data.liveCheckins.filter(c => c.propertyName === selectedPG.name);
-                            const flaggedGuests = guestsAtPG.filter(c => c.watchlistMatch);
-                            const regularGuests = guestsAtPG.filter(c => !c.watchlistMatch);
-
-                            return (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                <h4 style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
-                                  Roster: {selectedPG.name} ({guestsAtPG.length} checked-in)
-                                </h4>
-
-                                {flaggedGuests.length > 0 && (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid var(--danger)', padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(255, 39, 39, 0.04)' }}>
-                                    <div style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      <AlertTriangle size={12} /> FLAGGED CRIMINAL MATCHES ({flaggedGuests.length})
-                                    </div>
-                                    {flaggedGuests.map(c => (
-                                      <div 
-                                        key={c.id}
-                                        onClick={() => setSelectedItem({ type: 'guest', item: c })}
-                                        style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '6px', backgroundColor: 'var(--bg-input)', borderRadius: '6px', cursor: 'pointer', border: '1px solid var(--danger)' }}
-                                      >
-                                        <img src={c.photo} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                                        <div style={{ flex: 1 }}>
-                                          <span style={{ fontSize: '11.5px', fontWeight: 'bold', color: 'var(--danger)', display: 'block' }}>{c.guestName}</span>
-                                          <span style={{ fontSize: '9px', color: 'var(--text-muted)', display: 'block' }}>Room {c.roomNumber} • {c.watchlistReason}</span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-
-                                <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                  {regularGuests.map(c => (
-                                    <div 
-                                      key={c.id}
-                                      onClick={() => setSelectedItem({ type: 'guest', item: c })}
-                                      style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px', backgroundColor: 'var(--bg-input)', borderRadius: '8px', cursor: 'pointer', border: '1px solid var(--border-color)' }}
-                                    >
-                                      <img src={c.photo} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                                      <div style={{ flex: 1 }}>
-                                        <span style={{ fontSize: '11.5px', fontWeight: 'bold', display: 'block' }}>{c.guestName}</span>
-                                        <span style={{ fontSize: '9.5px', color: 'var(--text-muted)' }}>{c.gender} • Room {c.roomNumber} • Aadhaar {c.idNumber}</span>
-                                      </div>
-                                      <span className={`status-indicator ${c.status}`} style={{ fontSize: '9px' }}>{c.status}</span>
-                                    </div>
-                                  ))}
-                                  {guestsAtPG.length === 0 && (
-                                    <div style={{ padding: '14px', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '11.5px' }}>
-                                      No live guests checked in at this property.
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })()
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '180px', border: '1px dashed var(--border-color)', borderRadius: '8px', color: 'var(--text-muted)' }}>
-                            <Building size={18} style={{ marginBottom: '6px', color: 'var(--text-muted)' }} />
-                            <span style={{ fontSize: '11px', textAlign: 'center' }}>Select a PG property to load occupant manifest.</span>
-                          </div>
-                        )}
-                      </div>
-
-                    </div>
-                  </motion.div>
-                )}
 
 
                 {/* GPS PATROL DISPATCH ROSTER */}
@@ -1140,7 +1005,7 @@ export default function App() {
                 </div>
 
                 {/* Sub Tab lists */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: 'calc(100vh - 240px)', overflowY: 'auto', paddingRight: '6px' }}>
                   
                   {/* PENDING SUBMISSION TAB */}
                   {verificationSubTab === 'pending' && (
