@@ -430,16 +430,20 @@ h1, h2, h3, h4, h5, h6 {
 .dashboard-content {
   display: grid;
   grid-template-columns: 1fr 310px;
-  flex: 1;
+  height: calc(100vh - 54px);
+  max-height: calc(100vh - 54px);
   overflow: hidden;
+  position: relative;
 }
 
 .dashboard-center {
-  padding: 20px;
+  padding: 24px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+  height: 100%;
+  min-height: 0; /* Ensures grid column height constraints apply */
 }
 
 /* ─── GLASS WIDGET CARDS ─── */
@@ -447,7 +451,7 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg); /* 18px iOS style */
-  padding: 16px;
+  padding: 20px;
   box-shadow: var(--shadow-md);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-normal);
   position: relative;
@@ -825,6 +829,9 @@ tr:hover td {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  height: 100%;
+  min-height: 0;
+  flex-shrink: 0;
   transition: background-color var(--transition-normal), border-color var(--transition-normal);
 }
 
@@ -1052,4 +1059,18 @@ tr:hover td {
 
 [data-theme="light"] ::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.15);
+}
+
+/* Responsive Sector Analysis Grid */
+.sector-analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .sector-analysis-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }

@@ -852,7 +852,7 @@ export default function App() {
                       </button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '16px' }}>
+                    <div className="sector-analysis-grid">
                       
                       {/* Step 1: PGs in Sector */}
                       <div>
@@ -870,7 +870,7 @@ export default function App() {
                                   justifyContent: 'space-between', 
                                   alignItems: 'center',
                                   padding: '10px', 
-                                  backgroundColor: isSelectedPG ? 'var(--secondary-bg)' : 'var(--bg-input)', 
+                                  backgroundColor: isSelectedPG ? 'var(--primary-subtle)' : 'var(--bg-input)', 
                                   borderRadius: '8px', 
                                   cursor: 'pointer', 
                                   border: isSelectedPG ? '1px solid var(--primary)' : '1px solid var(--border-color)',
@@ -932,7 +932,7 @@ export default function App() {
                                   </div>
                                 )}
 
-                                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                   {regularGuests.map(c => (
                                     <div 
                                       key={c.id}
@@ -1386,7 +1386,7 @@ export default function App() {
                       </button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '16px' }}>
+                    <div className="sector-analysis-grid">
                       
                       {/* Step 1: PGs in Sector */}
                       <div>
@@ -1404,7 +1404,7 @@ export default function App() {
                                   justifyContent: 'space-between', 
                                   alignItems: 'center',
                                   padding: '10px', 
-                                  backgroundColor: isSelectedPG ? 'var(--secondary-bg)' : 'var(--bg-input)', 
+                                  backgroundColor: isSelectedPG ? 'var(--primary-subtle)' : 'var(--bg-input)', 
                                   borderRadius: '8px', 
                                   cursor: 'pointer', 
                                   border: isSelectedPG ? '1px solid var(--primary)' : '1px solid var(--border-color)',
@@ -1466,7 +1466,7 @@ export default function App() {
                                   </div>
                                 )}
 
-                                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                   {regularGuests.map(c => (
                                     <div 
                                       key={c.id}
