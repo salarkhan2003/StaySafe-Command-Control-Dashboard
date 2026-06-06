@@ -38,7 +38,10 @@ export default function App() {
   const [selectedDistrictId, setSelectedDistrictId] = useState<string | null>(null);
   const [mapMode, setMapMode] = useState<'occupancy' | 'alerts'>('occupancy');
   const [searchQuery, setSearchQuery] = useState('');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('police-theme');
+    return (saved as 'dark' | 'light') || 'light';
+  });
   const [selectedItem, setSelectedItem] = useState<{ type: 'guest' | 'property'; item: any } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -165,6 +168,7 @@ export default function App() {
   // --- THEME ---
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('police-theme', theme);
   }, [theme]);
 
   // --- GLOBAL SHORTCUT FOR COMMAND PALETTE ---
