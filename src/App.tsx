@@ -566,6 +566,14 @@ export default function App() {
     openAlert("Database Reset Complete", "Simulated command center databases reset successfully.");
   };
 
+  const handleResetMapView = () => {
+    setSelectedDistrictId(null);
+    if (mapRef.current) {
+      const initialZoom = currentTab === 'overview' ? 7 : 8;
+      mapRef.current.setView([15.9129, 79.7400], initialZoom);
+    }
+  };
+
   // --- ROBUST SEARCH FILTER MATCHING ANY KEYWORD ---
   const searchFilter = (item: any) => {
     if (!searchQuery) return true;
@@ -818,9 +826,16 @@ export default function App() {
                 >
                   <div className="panel-header" style={{ marginBottom: '14px' }}>
                     <h3>District Geospatial Surveillance</h3>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <button className={`filter-chip ${mapMode === 'occupancy' ? 'active' : ''}`} onClick={() => setMapMode('occupancy')} style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--border-color)', background: mapMode === 'occupancy' ? 'var(--primary)' : 'none', color: mapMode === 'occupancy' ? '#000' : 'inherit' }}>Occupancy density</button>
                       <button className={`filter-chip ${mapMode === 'alerts' ? 'active' : ''}`} onClick={() => setMapMode('alerts')} style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--border-color)', background: mapMode === 'alerts' ? 'var(--primary)' : 'none', color: mapMode === 'alerts' ? '#000' : 'inherit' }}>Threat heatmap</button>
+                      <button 
+                        className="btn-action-small primary" 
+                        onClick={handleResetMapView}
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '6px', fontSize: '11px' }}
+                      >
+                        <RefreshCw size={11} /> Reset Map Zoom
+                      </button>
                     </div>
                   </div>
 
@@ -1264,8 +1279,17 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <motion.div className="glass-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                   <div className="panel-header" style={{ marginBottom: '10px' }}>
-                    <h3>Full GIS Surveillance Map</h3>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Realtime tracking across AP</span>
+                    <div>
+                      <h3>Full GIS Surveillance Map</h3>
+                      <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Realtime tracking across AP</p>
+                    </div>
+                    <button 
+                      className="btn-action-small primary" 
+                      onClick={handleResetMapView}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
+                    >
+                      <RefreshCw size={11} /> Reset Map Zoom
+                    </button>
                   </div>
                   <div className="map-layout" style={{ height: '520px', gridTemplateColumns: '1fr 280px' }}>
                     <div className="map-container" style={{ height: '100%' }}>
